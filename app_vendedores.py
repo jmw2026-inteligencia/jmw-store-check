@@ -12,14 +12,15 @@ st.set_page_config(page_title="JMW Store Check", page_icon="📸", layout="cente
 st.markdown("""
     <style>
     .stApp { background-color: #00a99d !important; }
-    h1 { color: #ffffff !important; text-align: center; font-weight: 800; }
-    .stSelectbox>div>div { background-color: #1c355e !important; color: white !important; }
-    .stTextInput>div>div>input { background-color: #1c355e !important; color: white !important; }
-    .stNumberInput>div>div>input { background-color: #1c355e !important; color: white !important; }
+    h1 { color: #ffffff !important; text-align: center; font-weight: 800; font-size: 26px !important; }
+    h2 { color: #ffffff !important; text-align: center; font-size: 18px !important; margin-bottom: 20px !important; }
+    .help-text { color: #e0e0e0 !important; font-size: 13px !important; font-style: italic !important; margin-bottom: 10px !important; display: block; }
     .stButton>button { background: #1c355e !important; color: white !important; font-weight: bold; border-radius: 8px; width: 100%; height: 3.5rem; }
-    .info-msg { background: #1c355e; color: white; padding: 10px; border-radius: 5px; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
+
+st.markdown("<h1>JMW Store Check</h1>", unsafe_allow_html=True)
+st.markdown("<h2>Sistema de Monitoreo de Precios</h2>", unsafe_allow_html=True)
 
 # --- CARGA DE DATOS ---
 @st.cache_data(ttl=1800)
@@ -37,44 +38,50 @@ def cargar_maestro_local():
     df_m = pd.merge(df_m, df_c[["serial", "proveedor", "rubro", "sub_categoria"]], on="serial", how="left")
     df_exp = df_m[["serial", "nombre", "segmento1", "proveedor", "rubro", "sub_categoria"]].copy()
     df_exp.columns = ["SERIAL", "NOMBRE_PRODUCTO", "SEGMENTO", "PROVEEDOR", "RUBRO", "SUB_CATEGORIA"]
+    # Limpieza para que no falle el selectbox
+    df_exp["NOMBRE_PRODUCTO"] = df_exp["NOMBRE_PRODUCTO"].astype(str)
     return df_exp.sort_values(by="NOMBRE_PRODUCTO")
 
 df_maestro = cargar_maestro_local()
 
-# --- LÓGICA BCV ---
-@st.cache_data(ttl=3600)
-def obtener_tasa_bcv():
-    try:
-        res = requests.get("https://www.bcv.org.ve/", headers={'User-Agent': 'Mozilla/5.0'}, verify=False, timeout=5)
-        return float(BeautifulSoup(res.text, 'html.parser').find(id="dolar").find('strong').text.strip().replace(',', '.'))
-    except: return 45.50
+# --- TASA BCV ---
+tasa_bcv = 45.50 # Ajusta si necesitas scraping en tiempo real
 
-tasa_bcv = obtener_tasa_bcv()
-
-# --- INTERFAZ ---
-st.markdown("<h1>JMW Store Check</h1>", unsafe_allow_html=True)
-
+# --- FORMULARIO ---
 if 'submitted' not in st.session_state: st.session_state['submitted'] = False
 
 if not st.session_state['submitted']:
-    with st.form("form_registro", clear_on_submit=False):
-        vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
-        competencia = st.selectbox("Establecimiento", ["Competencia1", "Competencia2", "Competencia3", "Otro"])
+    with st.form("form_completo", clear_on_submit=False):
         
-        # Filtro con búsqueda (el selectbox de Streamlit permite buscar)
-        producto = st.selectbox("Producto (Escribe para buscar)", ["-- Seleccione --"] + df_maestro["NOMBRE_PRODUCTO"].tolist())
+        # 1. EXPANDER DE DATOS BÁSICOS (RECUPERADO)
+        with st.expander("👤 Persona y Datos de Control", expanded=True):
+            vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
+            st.markdown("<span class='help-text'>Selecciona quién realiza la auditoría.</span>", unsafe_allow_html=True)
+            competencia = st.selectbox("Establecimiento", ["Competencia1", "Competencia2", "Competencia3", "Otro"])
+            st.markdown("<span class='help-text'>Selecciona el local visitado.</span>", unsafe_allow_html=True)
+
+        # 2. ESCÁNER
+        with st.expander("📷 Escáner de Código"):
+            st.camera_input("Enfocar")
+            serial_manual = st.text_input("Código de Barras (Manual)")
+
+        # 3. PRODUCTO CON DESCRIPCIÓN LARGA (FIX: Searchable Selectbox)
+        producto = st.selectbox("Producto (Escribe para buscar descripción larga)", 
+                                ["-- Seleccione --"] + df_maestro["NOMBRE_PRODUCTO"].tolist(),
+                                help="Si el nombre es largo, usa este buscador.")
         
+        # 4. PRECIOS
         moneda = st.radio("Moneda:", ["Bolívares (Bs)", "Dólares ($)"], horizontal=True)
         precio = st.number_input("Precio Marcado", min_value=0.0, step=0.01)
         
         if moneda == "Bolívares (Bs)" and precio > 0:
-            st.markdown(f"<div class='info-msg'>Precio: {precio:.2f} Bs (Eq: {(precio/tasa_bcv):.2f} $)</div>", unsafe_allow_html=True)
+            st.info(f"PRECIO PROFESIONAL: {precio:.2f} Bs | EQUIVALENTE: {(precio/tasa_bcv):.2f} $")
 
+        # 5. SUBMIT
         if st.form_submit_button("🚀 TRANSMITIR REGISTRO"):
             if producto == "-- Seleccione --":
-                st.error("Seleccione un producto.")
+                st.error("❌ Debe seleccionar un producto.")
             else:
-                # Lógica de envío
                 payload = {
                     "fecha_captura": str(datetime.date.today()),
                     "vendedor": vendedor,
@@ -82,16 +89,17 @@ if not st.session_state['submitted']:
                     "nombre_producto": producto,
                     "precio_competencia_usd": float(round(precio if moneda == "Dólares ($)" else precio/tasa_bcv, 2))
                 }
-                res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", 
-                                    headers={"apikey": "sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Authorization": "Bearer sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Content-Type": "application/json"},
-                                    json=payload)
-                if res.status_code in [200, 201]:
+                # Tu clave de Supabase
+                headers = {"apikey": "sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Authorization": "Bearer sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Content-Type": "application/json"}
+                res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
+                
+                if res.status_code in [200, 201, 204]:
                     st.session_state['submitted'] = True
                     st.rerun()
                 else:
-                    st.error(f"Error: {res.text}")
+                    st.error(f"Error Supabase: {res.text}")
 else:
-    st.success("✅ ¡Registro Exitoso!")
+    st.success("✅ ¡Registro enviado exitosamente!")
     if st.button("🔄 Siguiente Registro"):
         st.session_state['submitted'] = False
         st.rerun()
