@@ -4,15 +4,15 @@ import datetime
 import pandas as pd
 from bs4 import BeautifulSoup
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #00a99d !important; }
-    h1 { color: white !important; text-align: center; font-weight: 800; }
+    .stApp { background-color: #00a99d !important; font-family: 'Segoe UI', sans-serif !important; }
+    h1 { color: #ffffff !important; text-align: center; font-weight: 800; }
+    .stButton>button { background: #1c355e !important; color: white !important; font-weight: bold; border-radius: 8px; width: 100%; height: 3.5rem; }
     .price-box { background: #1c355e; color: #00ffcc; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid white; margin: 15px 0; }
-    .stButton>button { background: #1c355e !important; color: white !important; font-weight: bold; width: 100%; height: 3.5rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -39,26 +39,32 @@ def cargar_maestro():
 
 df_maestro = cargar_maestro()
 
-# --- INTERFAZ ---
-vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
-competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"])
-producto_sel = st.selectbox("Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist())
+# --- FORMULARIO CON EXPANDERS ---
 
-# Lógica de Moneda Instantánea
-col_t, col_p = st.columns([1, 2])
-with col_t:
-    es_dolar = st.toggle("¿Precio en $?", value=True)
-with col_p:
-    moneda_txt = "DÓLARES ($)" if es_dolar else "BOLÍVARES (Bs)"
-    st.markdown(f"### Moneda: {moneda_txt}")
+# 1. Auditor y Local
+with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
+    vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
+    competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"])
 
-precio = st.number_input(f"Precio Marcado", min_value=0.0, step=0.01)
+# 2. Cámara (Opcional)
+with st.expander("📷 2. Escáner de Producto (Opcional)", expanded=False):
+    foto = st.camera_input("Tomar foto de la etiqueta")
+    serial = st.text_input("Código de Barras Manual")
 
-# Cálculo visual inmediato
-precio_usd = precio if es_dolar else (precio / tasa_bcv)
-st.markdown(f"<div class='price-box'>VALOR USD: {precio_usd:.2f} $</div>", unsafe_allow_html=True)
+# 3. Producto
+with st.expander("📦 3. Seleccionar Producto", expanded=True):
+    producto_sel = st.selectbox("Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist())
 
-serial = st.text_input("Código de Barras")
+# 4. Precio y Moneda
+with st.expander("💰 4. Registro de Precio", expanded=True):
+    es_dolar = st.toggle("¿El precio está en DÓLARES ($)?", value=True)
+    moneda_label = "DÓLARES ($)" if es_dolar else "BOLÍVARES (Bs)"
+    precio = st.number_input(f"Precio en {moneda_label}", min_value=0.0, step=0.01)
+    
+    # Cálculo dinámico
+    valor_final = precio if es_dolar else (precio / tasa_bcv)
+    label_valor = "VALOR EN DÓLARES ($):" if es_dolar else "VALOR CALCULADO EN DÓLARES ($):"
+    st.markdown(f"<div class='price-box'>{label_valor} {valor_final:.2f} $</div>", unsafe_allow_html=True)
 
 # Transmisión
 if st.button("🚀 TRANSMITIR REGISTRO"):
@@ -79,7 +85,7 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
             "moneda_origen": "USD" if es_dolar else "VES",
             "precio_bruto_origen": float(precio),
             "tasa_bcv_momento": float(tasa_bcv),
-            "precio_competencia_usd": float(round(precio_usd, 2)),
+            "precio_competencia_usd": float(round(valor_final, 2)),
             "foto_url": "SIN FOTO"
         }
         
