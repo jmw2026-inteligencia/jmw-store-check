@@ -3,70 +3,68 @@ import requests
 import datetime
 import pandas as pd
 from bs4 import BeautifulSoup
-import os
+import urllib3
 
 # --- CONFIGURACIÓN ---
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #f8fbfb !important; }
-    h1 { color: #008080 !important; text-align: center; font-weight: 800 !important; }
-    .bcv-box { background: #008080; color: white; padding: 12px; border-radius: 12px; text-align: center; font-weight: bold; }
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;600&display=swap');
+    .stApp { font-family: 'Outfit', sans-serif !important; background-color: #f8fbfb !important; }
+    h1 { color: #008080 !important; text-align: center; font-weight: 800 !important; margin-bottom: 20px; }
+    .bcv-box { background: #008080; color: white; padding: 12px; border-radius: 12px; text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 20px; }
+    .price-value { font-size: 24px; font-weight: 800; color: #ff8c00; text-align: center; padding: 10px; border: 2px dashed #ff8c00; border-radius: 10px; margin-bottom: 20px; }
+    div.stButton > button { background-color: #ff8c00 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; }
     </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>📊 JMW Store Check</h1>", unsafe_allow_html=True)
 
-# --- 1. CARGA SEGURA DE DATOS ---
+# --- 1. CARGA DE DATOS ---
 @st.cache_data(ttl=600)
-def get_maestro():
-    archivo = "IMPORTACION_ANALISIS_PRECIO.xlsx"
-    if not os.path.exists(archivo):
-        return None # Devuelve None si no existe el archivo
-    df = pd.read_excel(archivo, sheet_name="PRODUCTOS")
+def cargar_maestro():
+    df = pd.read_excel("IMPORTACION_ANALISIS_PRECIO.xlsx", sheet_name="PRODUCTOS")
     df.columns = [str(c).lower().strip().replace(" ", "_") for c in df.columns]
     df['nombre'] = df['nombre'].astype(str).str.strip()
     return df
 
-df_maestro = get_maestro()
-
-if df_maestro is None:
-    st.error("⚠️ ERROR: No se encuentra el archivo 'IMPORTACION_ANALISIS_PRECIO.xlsx'. Por favor, súbelo a la carpeta del proyecto.")
-    st.stop() # Detiene la ejecución aquí para que no de error
+df_maestro = cargar_maestro()
 
 # --- 2. TASA BCV ---
 def get_tasa():
     try:
-        res = requests.get("https://www.bcv.org.ve/", headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        return float(soup.find(id="dolar").find('strong').text.strip().replace(',', '.'))
+        res = requests.get("https://www.bcv.org.ve/", headers={"User-Agent": "Mozilla/5.0"}, timeout=8, verify=False)
+        if res.status_code == 200:
+            return float(BeautifulSoup(res.text, 'html.parser').find(id="dolar").find('strong').text.strip().replace(',', '.'))
+        return 530.50
     except: return 530.50
 
 tasa_bcv = get_tasa()
 st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa_bcv:.2f} Bs/$</div>", unsafe_allow_html=True)
 
 # --- 3. INTERFAZ ---
-vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"], key="vendedor")
-competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"], key="competencia")
+with st.expander("👤 1. Auditor y Punto de Venta", expanded=True):
+    vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"], key="vendedor")
+    competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"], key="competencia")
 
-# Foto y Serial
-tipo_foto = st.radio("Evidencia", ["Cámara", "Archivo"], horizontal=True)
-foto = st.camera_input("Capturar") if tipo_foto == "Cámara" else st.file_uploader("Subir", type=['jpg'])
-serial_manual = st.text_input("Serial", key="serial")
+with st.expander("📷 2. Escáner y Evidencia", expanded=True):
+    foto = st.camera_input("Capturar evidencia")
+    serial_manual = st.text_input("Serial (Código de barras)", key="serial")
 
-# Producto
-producto = st.selectbox("Seleccionar Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist(), key="prod")
-
-es_usd = st.toggle("¿Precio en DÓLARES?", True)
-precio = st.number_input("Precio Marcado", min_value=0.0, step=0.01, key="precio")
-valor_usd = precio if es_usd else (precio / tasa_bcv)
-st.write(f"### Valor en USD: {valor_usd:.2f} $")
+with st.expander("📦 3. Producto y Precio", expanded=True):
+    producto = st.selectbox("Seleccionar Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist(), key="prod")
+    es_usd = st.toggle("¿Precio en DÓLARES?", True)
+    label_precio = "Precio Marcado ($)" if es_usd else "Precio Marcado (Bs)"
+    precio = st.number_input(label_precio, min_value=0.0, step=0.01, key="precio")
+    valor_usd = precio if es_usd else (precio / tasa_bcv)
+    st.markdown(f"<div class='price-value'>VALOR: {valor_usd:.2f} $</div>", unsafe_allow_html=True)
 
 # --- 4. TRANSMISIÓN ---
-if st.button("🚀 TRANSMITIR"):
+if st.button("🚀 TRANSMITIR REGISTRO"):
     if producto == "-- Seleccione --":
-        st.error("Selecciona un producto.")
+        st.error("⚠️ ¡Debes seleccionar un producto!")
     else:
         fila = df_maestro[df_maestro["nombre"] == producto].iloc[0]
         payload = {
@@ -90,10 +88,10 @@ if st.button("🚀 TRANSMITIR"):
         res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
         
         if res.status_code in [200, 201, 204]:
-            st.success("✅ ¡Enviado!")
+            st.success("✅ ¡Registro enviado!")
             st.session_state.serial = ""
             st.session_state.precio = 0.0
             st.session_state.prod = "-- Seleccione --"
             st.rerun()
         else:
-            st.error(f"Error: {res.text}")
+            st.error(f"❌ Error: {res.text}")
