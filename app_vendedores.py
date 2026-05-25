@@ -4,7 +4,21 @@ import datetime
 import pandas as pd
 from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="JMW Auditoría", layout="centered")
+# --- CONFIGURACIÓN E IDENTIDAD ---
+st.set_page_config(page_title="JMW Store Check", layout="centered")
+
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;600&display=swap');
+    .stApp { background-color: #f0f7f6 !important; font-family: 'Outfit', sans-serif !important; }
+    h1 { color: #008080 !important; text-align: center; font-weight: 800 !important; }
+    .bcv-box { background: #008080; color: white; padding: 15px; border-radius: 15px; text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+    .price-box { background: #ffffff; color: #008080; padding: 20px; border-radius: 15px; text-align: center; font-size: 24px; font-weight: 800; border: 3px solid #008080; margin: 15px 0; }
+    .stButton>button { background: #008080 !important; color: white !important; font-weight: bold; border-radius: 12px; width: 100%; height: 3.5rem; }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<h1>JMW Store Check</h1>", unsafe_allow_html=True)
 
 # --- 1. CARGA DE DATOS ---
 @st.cache_data(ttl=600)
@@ -16,7 +30,7 @@ def cargar_maestro():
 
 df_maestro = cargar_maestro()
 
-# --- 2. TASA BCV REAL ---
+# --- 2. TASA BCV ---
 @st.cache_data(ttl=3600)
 def get_tasa():
     try:
@@ -27,34 +41,32 @@ def get_tasa():
     except: return 530.50
 
 tasa_bcv = get_tasa()
+st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa_bcv:.2f} Bs/$</div>", unsafe_allow_html=True)
 
 # --- 3. INTERFAZ ---
-st.title("JMW Store Check")
-st.metric("Tasa BCV Actual", f"{tasa_bcv} Bs/$")
-
-with st.expander("👤 1. Datos Generales", expanded=True):
+with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
     vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
     competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"])
 
-with st.expander("📷 2. Evidencia y Serial", expanded=True):
-    foto = st.camera_input("Tomar foto del punto de venta")
-    serial_manual = st.text_input("Digitar Serial (si el escáner falla)")
+with st.expander("📷 2. Escáner y Serial", expanded=True):
+    foto = st.camera_input("Tomar foto")
+    serial_manual = st.text_input("Código de Barras Manual")
 
-with st.expander("📦 3. Producto y Precio", expanded=True):
+with st.expander("📦 3. Seleccionar Producto", expanded=True):
     producto = st.selectbox("Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist())
-    precio = st.number_input("Precio Marcado", min_value=0.0)
-    es_usd = st.toggle("¿Precio en USD?", True)
 
+with st.expander("💰 4. Registro de Precio", expanded=True):
+    es_usd = st.toggle("¿Precio en USD?", True)
+    precio = st.number_input("Precio Marcado", min_value=0.0)
+    valor_final = precio if es_usd else (precio / tasa_bcv)
+    st.markdown(f"<div class='price-box'>VALOR USD: {valor_final:.2f} $</div>", unsafe_allow_html=True)
+
+# --- 4. TRANSMISIÓN ---
 if st.button("🚀 TRANSMITIR REGISTRO"):
     if producto == "-- Seleccione --":
         st.error("¡Selecciona un producto!")
     else:
         fila = df_maestro[df_maestro["nombre"] == producto].iloc[0]
-        
-        # Validar si faltan datos en el Excel
-        if pd.isna(fila.get("segmento")):
-            st.warning("⚠️ El Excel no tiene datos de Segmento/Proveedor para este producto.")
-        
         payload = {
             "fecha_captura": str(datetime.date.today()),
             "vendedor": str(vendedor),
@@ -68,7 +80,7 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
             "moneda_origen": "USD" if es_usd else "VES",
             "precio_bruto_origen": float(precio),
             "tasa_bcv_momento": float(tasa_bcv),
-            "precio_competencia_usd": float(precio if es_usd else precio/tasa_bcv),
+            "precio_competencia_usd": float(valor_final),
             "foto_url": "FOTO_TOMADA" if foto else "SIN FOTO"
         }
         
@@ -84,4 +96,4 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
             st.success("✅ ¡Registro enviado exitosamente!")
             st.balloons()
         else:
-            st.error(f"Error al enviar: {res.text}")
+            st.error(f"Error: {res.text}")
