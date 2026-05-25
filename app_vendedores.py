@@ -17,12 +17,11 @@ st.markdown("""
     .bcv-box { background: #2a616a; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; border: 1px solid #ffffff; margin-bottom: 20px; }
     .price-value { font-size: 24px; font-weight: 800; color: #ff8c00; background: #ffffff; text-align: center; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     div.stButton > button { background-color: #ff8c00 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; border-radius: 8px; }
+    .stExpander { background-color: #2a616a !important; color: white !important; border: 1px solid #ffffff !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ESTADO Y CARGA ---
-if 'prod' not in st.session_state: st.session_state.prod = None
-
+# --- CARGA DE DATOS ---
 @st.cache_data(ttl=600)
 def cargar_maestro():
     df = pd.read_excel("IMPORTACION_ANALISIS_PRECIO.xlsx", sheet_name="PRODUCTOS")
@@ -30,30 +29,43 @@ def cargar_maestro():
     df['nombre'] = df['nombre'].astype(str).str.strip()
     return df
 
-df_maestro = cargar_maestro()
+try:
+    df_maestro = cargar_maestro()
+    nombres = df_maestro["nombre"].tolist()
+except:
+    st.error("Error al cargar el Excel.")
+    nombres = []
 
 st.markdown("<h1>📊 JMW Store Check</h1>", unsafe_allow_html=True)
 
-# 1. AUDITOR Y ESTABLECIMIENTO
-vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"])
-competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"])
+# --- BCV ---
+def get_tasa():
+    try:
+        res = requests.get("https://www.bcv.org.ve/", timeout=5, verify=False)
+        return float(BeautifulSoup(res.text, 'html.parser').find(id="dolar").find('strong').text.strip().replace(',', '.'))
+    except: return 530.50
 
-# 2. ESCÁNER / EVIDENCIA
-tipo_foto = st.radio("Método de evidencia", ["Cámara", "Archivo"], horizontal=True)
-foto = st.camera_input("Capturar") if tipo_foto == "Cámara" else st.file_uploader("Subir archivo", type=['jpg', 'png'])
-serial_manual = st.text_input("Serial (Código de barras)")
+st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {get_tasa():.2f} Bs/$</div>", unsafe_allow_html=True)
 
-# 3. PRODUCTO Y PRECIO (FILTRO INTELIGENTE)
-producto = st.selectbox("Buscar Producto", df_maestro["nombre"].tolist(), index=None, placeholder="Escribe para buscar...")
-es_usd = st.toggle("¿Precio en DÓLARES?", True)
-precio = st.number_input("Precio Marcado", min_value=0.0, step=0.01)
+# --- INTERFAZ CON EXPANDERS ---
+with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
+    vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"])
+    competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"])
 
-# TASA Y CÁLCULO
-tasa = 530.50 # Default
-valor_usd = precio if es_usd else (precio / tasa)
-st.markdown(f"<div class='price-value'>VALOR: {valor_usd:.2f} $</div>", unsafe_allow_html=True)
+with st.expander("📷 2. Escáner y Evidencia", expanded=True):
+    tipo_foto = st.radio("Método", ["Cámara", "Archivo"], horizontal=True)
+    foto = st.camera_input("Cámara") if tipo_foto == "Cámara" else st.file_uploader("Subir imagen", type=['jpg', 'png'])
+    serial_manual = st.text_input("Serial (Código de barras)")
 
-# 4. TRANSMITIR
+with st.expander("📦 3. Producto y Precio", expanded=True):
+    producto = st.selectbox("Buscar Producto", nombres, index=None, placeholder="Escribe para buscar...")
+    es_usd = st.toggle("¿Precio en DÓLARES?", True)
+    precio = st.number_input("Precio Marcado", min_value=0.0, step=0.01)
+    
+    valor_usd = precio if es_usd else (precio / get_tasa())
+    st.markdown(f"<div class='price-value'>VALOR: {valor_usd:.2f} $</div>", unsafe_allow_html=True)
+
+# --- TRANSMISIÓN ---
 if st.button("🚀 TRANSMITIR REGISTRO"):
     if not producto:
         st.error("⚠️ ¡Selecciona un producto!")
@@ -71,7 +83,7 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
             "sub_categoria": str(fila.get("sub_categoria", "N/A")),
             "moneda_origen": "USD" if es_usd else "VES",
             "precio_bruto_origen": float(precio),
-            "tasa_bcv_momento": float(tasa),
+            "tasa_bcv_momento": float(get_tasa()),
             "precio_competencia_usd": float(valor_usd),
             "foto_url": "FOTO_ADJUNTA" if foto else "SIN FOTO"
         }
@@ -80,7 +92,7 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
         res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
         
         if res.status_code in [200, 201, 204]:
-            st.success("✅ ¡Enviado!")
+            st.success("✅ ¡Registro enviado!")
             st.rerun()
         else:
             st.error(f"❌ Error: {res.text}")
