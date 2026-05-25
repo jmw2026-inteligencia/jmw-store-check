@@ -2,9 +2,9 @@ import streamlit as st
 import requests
 import datetime
 import pandas as pd
-import uuid
+from bs4 import BeautifulSoup
 
-# --- 1. CONFIGURACIÓN E IDENTIDAD (Colores JMW) ---
+# --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
 st.markdown("""
@@ -21,20 +21,33 @@ st.markdown("""
 st.markdown("<h1>JMW Store Check</h1>", unsafe_allow_html=True)
 st.markdown("<h2>Sistema de Monitoreo de Precios</h2>", unsafe_allow_html=True)
 
-# --- 2. CARGA DE DATOS ---
+# --- 2. CONEXIÓN BCV (RECUPERADA) ---
+@st.cache_data(ttl=3600)
+def obtener_tasa_bcv():
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get("https://www.bcv.org.ve/", headers=headers, verify=False, timeout=10)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        tasa_str = soup.find(id="dolar").find('strong').text.strip().replace(',', '.')
+        return float(tasa_str)
+    except:
+        return 530.50 # Valor de respaldo si falla el sitio
+
+tasa_bcv = obtener_tasa_bcv()
+st.markdown(f"<div class='info-msg'>Tasa BCV Actual: {tasa_bcv:.2f} Bs/$</div>", unsafe_allow_html=True)
+
+# --- 3. DATOS ---
 @st.cache_data(ttl=1800)
 def cargar_maestro_local():
     return pd.read_excel("IMPORTACION_ANALISIS_PRECIO.xlsx", sheet_name="PRODUCTOS")
 
 df_maestro = cargar_maestro_local()
-tasa_bcv = 530.50 
 
-# --- 3. FORMULARIO ---
+# --- 4. FORMULARIO ---
 if 'submitted' not in st.session_state: st.session_state['submitted'] = False
 
 if not st.session_state['submitted']:
     with st.form("form_final"):
-        # Expanders originales
         with st.expander("👤 Persona y Datos de Control", expanded=True):
             vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
             st.markdown("<span class='help-text'>Identifícate para registrar la autoría.</span>", unsafe_allow_html=True)
@@ -50,18 +63,12 @@ if not st.session_state['submitted']:
         moneda = st.radio("Moneda:", ["Bolívares (Bs)", "Dólares ($)"], horizontal=True)
         precio = st.number_input("Precio Marcado", min_value=0.0, step=0.01)
 
-        # Lógica de conversión visible
-        if precio > 0:
-            conv = precio if moneda == "Dólares ($)" else precio/tasa_bcv
-            st.markdown(f"<div class='info-msg'>Precio en USD: {conv:.2f} $</div>", unsafe_allow_html=True)
-
         if st.form_submit_button("🚀 TRANSMITIR REGISTRO"):
             if producto_sel == "-- Seleccione --":
                 st.error("Seleccione un producto.")
             else:
                 info = df_maestro[df_maestro["nombre"] == producto_sel].iloc[0]
                 payload = {
-                    "id": str(uuid.uuid4()),
                     "fecha_captura": str(datetime.date.today()),
                     "vendedor": str(vendedor),
                     "competencia": str(competencia),
@@ -81,7 +88,7 @@ if not st.session_state['submitted']:
                 headers = {"apikey": "sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Authorization": "Bearer sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Content-Type": "application/json"}
                 res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
                 
-                if res.status_code in [200, 201]:
+                if res.status_code in [200, 201, 204]:
                     st.session_state['submitted'] = True
                     st.rerun()
                 else:
