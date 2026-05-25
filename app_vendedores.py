@@ -5,100 +5,674 @@ import pandas as pd
 from bs4 import BeautifulSoup
 import urllib3
 import time
+import os
+import re
+import base64
+from io import BytesIO
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
-# --- CSS MEJORADO (Sin negros) ---
+# ==========================================
+# 1. CSS COMPLETO
+# ==========================================
+
 st.markdown("""
     <style>
-    .stApp { background-color: #367c87 !important; }
-    h1, .stMarkdown, label { color: #ffffff !important; }
-    /* Selectores en naranja claro */
-    div[data-baseweb="select"], div[data-baseweb="input"], .stNumberInput input { 
-        background-color: #fff2e6 !important; color: #333 !important; 
+    /* Fondo principal */
+    .stApp { 
+        background-color: #367c87 !important; 
     }
-    .bcv-box { background: #2a616a; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; border: 1px solid #ffffff; margin-bottom: 20px; }
-    .price-value { font-size: 24px; font-weight: 800; color: #ff8c00; background: #ffffff; text-align: center; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
-    div.stButton > button { background-color: #ff8c00 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; border-radius: 8px; }
+    
+    /* Títulos y textos generales */
+    h1, .stMarkdown, label, .stCaption, .stTextInput label, .stNumberInput label {
+        color: #ffffff !important;
+    }
+    
+    /* Selectores e inputs */
+    div[data-baseweb="select"], div[data-baseweb="input"], .stNumberInput input, .stTextInput input {
+        background-color: #f5f5f5 !important;
+        color: #1a1a1a !important;
+        border-radius: 8px !important;
+        border: 1px solid #2a616a !important;
+    }
+    
+    /* Selector de opciones */
+    div[data-baseweb="select"] ul {
+        background-color: #f5f5f5 !important;
+        color: #1a1a1a !important;
+    }
+    
+    /* Toggle personalizado */
+    .st-emotion-cache-16idsys p {
+        font-weight: bold !important;
+        font-size: 16px !important;
+        color: #ffffff !important;
+    }
+    
+    /* Caja de tasa BCV */
+    .bcv-box { 
+        background: #2a616a;
+        color: white; 
+        padding: 15px; 
+        border-radius: 12px; 
+        text-align: center; 
+        font-weight: bold; 
+        border: 1px solid #ffffff; 
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    /* Caja de valor del precio */
+    .price-value { 
+        font-size: 28px; 
+        font-weight: 800; 
+        color: #2a616a; 
+        background: #ffffff; 
+        text-align: center; 
+        padding: 20px; 
+        border-radius: 12px; 
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border: 1px solid #2a616a;
+    }
+    
+    /* Botón de transmitir */
+    div.stButton > button { 
+        background: #2a616a;
+        color: white !important; 
+        font-weight: bold; 
+        font-size: 18px;
+        border: none; 
+        height: 4rem; 
+        width: 100%; 
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    div.stButton > button:hover {
+        background: #1e4a55;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        cursor: pointer;
+    }
+    
+    /* Tarjeta de producto */
+    .producto-card { 
+        background-color: #2a616a; 
+        padding: 15px; 
+        border-radius: 12px; 
+        margin: 10px 0; 
+        border-left: 5px solid #ffffff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    
+    .producto-serial { 
+        font-size: 12px; 
+        color: #e0e0e0; 
+    }
+    
+    .producto-nombre { 
+        font-size: 16px; 
+        font-weight: bold; 
+        color: #ffffff; 
+    }
+    
+    .producto-detalle { 
+        font-size: 13px; 
+        color: #e0e0e0; 
+        margin-top: 8px; 
+    }
+    
+    .info-badge { 
+        display: inline-block; 
+        background-color: #ffffff; 
+        padding: 3px 10px; 
+        border-radius: 20px; 
+        font-size: 11px; 
+        font-weight: bold;
+        margin-right: 6px;
+        margin-bottom: 5px;
+        color: #2a616a;
+    }
+    
+    /* Mensajes de éxito */
+    .stAlert[data-baseweb="alert"] {
+        background-color: #1e5a3a !important;
+        border-left: 5px solid #00ff88 !important;
+    }
+    .stAlert[data-baseweb="alert"] .stMarkdown {
+        color: #ffffff !important;
+    }
+    
+    /* Mensajes de error */
+    .stAlert[data-baseweb="alert"]:has(.st-emotion-cache-1r6slb0) {
+        background-color: #8b1e1e !important;
+        border-left: 5px solid #ff4444 !important;
+    }
+    
+    /* Mensajes de warning */
+    .stAlert[data-baseweb="alert"]:has(.st-emotion-cache-16idsys) {
+        background-color: #8b6b1e !important;
+        border-left: 5px solid #ffaa44 !important;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: #2a616a;
+        color: #ffffff;
+        border-radius: 10px;
+        font-weight: bold;
+    }
+    
+    .streamlit-expanderContent {
+        background-color: #2a616a;
+        border-radius: 0 0 10px 10px;
+        padding: 15px;
+    }
+    
+    /* Separador */
+    hr {
+        border-color: #ffffff;
+        margin: 20px 0;
+    }
+    
+    /* Último producto registrado */
+    .ultimo-producto {
+        background-color: #2a616a;
+        padding: 12px;
+        border-radius: 10px;
+        border-left: 4px solid #00ff88;
+        margin: 10px 0;
+        color: #ffffff;
+    }
+    
+    /* Scrollbar personalizada */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #2a616a;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #ffffff;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #e0e0e0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ESTADO DE SESIÓN ---
-if 'vendedor' not in st.session_state: st.session_state.vendedor = "Jad"
-if 'competencia' not in st.session_state: st.session_state.competencia = "Forum"
+# ==========================================
+# 2. ESTADO DE SESIÓN
+# ==========================================
 
-# --- CARGA ---
+if 'vendedor' not in st.session_state:
+    st.session_state.vendedor = "Jad"
+if 'competencia' not in st.session_state:
+    st.session_state.competencia = "Forum"
+if 'ultimo_producto' not in st.session_state:
+    st.session_state.ultimo_producto = None
+if 'ultimo_precio' not in st.session_state:
+    st.session_state.ultimo_precio = None
+if 'ultimo_competencia' not in st.session_state:
+    st.session_state.ultimo_competencia = None
+if 'scanner_producto' not in st.session_state:
+    st.session_state.scanner_producto = None
+
+# ==========================================
+# 3. CARGA DE DATOS DESDE CSV
+# ==========================================
+
 @st.cache_data(ttl=3600)
 def cargar_maestro():
-    df = pd.read_excel("IMPORTACION_ANALISIS_PRECIO.xlsx", sheet_name="PRODUCTOS")
-    df.columns = [str(c).lower().strip().replace(" ", "_") for c in df.columns]
-    return df
+    """Carga productos desde MAESTRO_SUPABASE.csv"""
+    try:
+        rutas_posibles = [
+            "MAESTRO_SUPABASE.csv",
+            "./MAESTRO_SUPABASE.csv",
+            "../MAESTRO_SUPABASE.csv"
+        ]
+        
+        csv_path = None
+        for ruta in rutas_posibles:
+            if os.path.exists(ruta):
+                csv_path = ruta
+                break
+        
+        if csv_path is None:
+            st.error("❌ No se encuentra MAESTRO_SUPABASE.csv")
+            return pd.DataFrame()
+        
+        df = pd.read_csv(csv_path, encoding="utf-8-sig")
+        df.columns = [str(c).lower().strip() for c in df.columns]
+        df["busqueda_texto"] = df["nombre_producto"].astype(str) + " " + df["serial"].astype(str)
+        df["nombre_vista"] = df["nombre_producto"].apply(
+            lambda x: x.title() if isinstance(x, str) else str(x)
+        )
+        
+        st.success(f"✅ Productos destacados cargados: {len(df):,}")
+        return df
+        
+    except Exception as e:
+        st.error(f"❌ Error cargando MAESTRO_SUPABASE.csv: {e}")
+        return pd.DataFrame()
+
+# ==========================================
+# 4. FUNCIONES AUXILIARES
+# ==========================================
+
+def formatear_producto(fila):
+    """Formatea la información del producto para mostrar en pantalla"""
+    nombre = fila.get('nombre_vista', fila.get('nombre_producto', 'N/A'))
+    serial = fila.get('serial', 'N/A')
+    segmento = fila.get('segmento', 'No especificado')
+    proveedor = fila.get('proveedor', 'No especificado')
+    rubro = fila.get('rubro', 'No especificado')
+    sub_categoria = fila.get('sub_categoria', 'No especificado')
+    
+    return f"""
+    <div class='producto-card'>
+        <div class='producto-nombre'>📦 {nombre}</div>
+        <div class='producto-serial'>🔢 Serial: {serial}</div>
+        <div class='producto-detalle'>
+            <span class='info-badge'>📂 {segmento}</span>
+            <span class='info-badge'>🏭 {proveedor}</span>
+            <span class='info-badge'>📚 {rubro}</span>
+            <span class='info-badge'>📌 {sub_categoria}</span>
+        </div>
+    </div>
+    """
+
+def obtener_datos_producto(df_maestro, prod_sel):
+    if prod_sel is None:
+        return {}
+    fila = df_maestro[df_maestro["nombre_producto"] == prod_sel]
+    if fila.empty:
+        return {}
+    fila = fila.iloc[0]
+    return {
+        "serial": str(fila.get("serial", "N/A")),
+        "segmento": str(fila.get("segmento", "No especificado")),
+        "proveedor": str(fila.get("proveedor", "No especificado")),
+        "rubro": str(fila.get("rubro", "No especificado")),
+        "sub_categoria": str(fila.get("sub_categoria", "No especificado"))
+    }
+
+# ==========================================
+# 5. CARGA PRINCIPAL
+# ==========================================
 
 df_maestro = cargar_maestro()
 
+if df_maestro.empty:
+    st.stop()
+
 st.markdown("<h1>📊 JMW Store Check</h1>", unsafe_allow_html=True)
 
-# Tasa BCV
+# ==========================================
+# 6. TASA BCV
+# ==========================================
+
 try:
     res = requests.get("https://www.bcv.org.ve/", timeout=5, verify=False)
-    tasa = float(BeautifulSoup(res.text, 'html.parser').find(id="dolar").find('strong').text.strip().replace(',', '.'))
-except: tasa = 530.50
+    soup = BeautifulSoup(res.text, 'html.parser')
+    dolar_element = soup.find(id="dolar")
+    if dolar_element:
+        tasa = float(dolar_element.find('strong').text.strip().replace(',', '.'))
+    else:
+        tasa = 530.50
+except:
+    tasa = 530.50
+
 st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa:.2f} Bs/$</div>", unsafe_allow_html=True)
 
-# 1. Auditor (Persistente)
+# ==========================================
+# 7. AUDITOR Y ESTABLECIMIENTO
+# ==========================================
+
 with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
-    st.session_state.vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"], index=["Jad", "Alexander", "Maria", "Juana"].index(st.session_state.vendedor))
-    st.session_state.competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"], index=["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"].index(st.session_state.competencia))
+    col1, col2 = st.columns(2)
+    with col1:
+        st.session_state.vendedor = st.selectbox(
+            "Auditor", 
+            ["Jad", "Alexander", "Maria", "Juana","Pedro"],
+            index=["Jad", "Alexander", "Maria", "Juana","Pedro"].index(st.session_state.vendedor)
+        )
+    with col2:
+        competidores = [
+            "MIFARMA LPTA", "MIFARMA RAF GONZ / DIMAWORLD",
+            "MIFARMA CENTRO", "MI FARMA JACIN LARA / SUPER 900",
+            "FARMA OFERTA / BARATILLO", "MEGA FARMA / RAMI 2020",
+            "LA ECONOMIA / SIRENA", "Otros"
+        ]
+        st.session_state.competencia = st.selectbox(
+            "Establecimiento",
+            competidores,
+            index=competidores.index(st.session_state.competencia) if st.session_state.competencia in competidores else 0
+        )
 
-# 2. Evidencia
+# ==========================================
+# 8. EVIDENCIA (CÁMARA / ESCÁNER)
+# ==========================================
+
 with st.expander("📷 2. Escáner y Evidencia", expanded=True):
-    tipo_foto = st.radio("Método", ["Cámara", "Archivo"], horizontal=True)
-    foto = st.camera_input("Capturar") if tipo_foto == "Cámara" else st.file_uploader("Subir imagen", type=['jpg', 'png'])
-    serial_manual = st.text_input("Serial (Código de barras)", key="serial_input")
+    tipo_foto = st.radio("Método de captura", ["📸 Cámara", "📁 Archivo"], horizontal=True)
+    
+    if tipo_foto == "📸 Cámara":
+        foto = st.camera_input("📸 Capturar foto del precio", key="camera_input")
+    else:
+        foto = st.file_uploader("📁 Subir foto del precio", type=['jpg', 'png', 'jpeg'], key="file_input")
+    
+    # Mostrar preview de la foto si existe
+    if foto:
+        st.image(foto, caption="Foto del precio", width=200)
+    
+    st.markdown("---")
+    st.markdown("### 🔍 Escáner de código de barras")
+    st.caption("📌 Usa un escáner USB/BT o escribe manualmente el código")
+    
+    # Entrada para escáner
+    serial_manual = st.text_input(
+        "Código de barras", 
+        placeholder="Escanea o escribe el código aquí...",
+        key="serial_input"
+    )
+    
+    # Auto-búsqueda al escanear
+    if serial_manual:
+        df_busqueda_serial = df_maestro[df_maestro['serial'].astype(str).str.contains(serial_manual, case=False, na=False)]
+        if not df_busqueda_serial.empty:
+            producto_encontrado = df_busqueda_serial.iloc[0]['nombre_producto']
+            st.session_state.scanner_producto = producto_encontrado
+            st.success(f"✅ Producto encontrado: {df_busqueda_serial.iloc[0]['nombre_vista'][:60]}...")
+        else:
+            st.session_state.scanner_producto = None
+            st.warning("⚠️ Producto no encontrado. Busca manualmente abajo.")
 
-# 3. Producto
+# ==========================================
+# 9. SELECCIÓN DE PRODUCTO (CON ESCÁNER AUTOMÁTICO)
+# ==========================================
+
 with st.expander("📦 3. Producto y Precio", expanded=True):
-    busqueda = st.text_input("Buscar Producto (Nombre o SKU):", key="busqueda")
-    df_filtrado = df_maestro[df_maestro['nombre'].str.contains(busqueda, case=False, na=False)] if busqueda else df_maestro
-    prod_sel = st.selectbox("Seleccionar", df_filtrado['nombre'].tolist(), index=None, key="prod_sel")
-    es_usd = st.toggle("¿Precio en DÓLARES?", True)
-    precio = st.number_input("Precio Marcado", min_value=0.0, step=0.01, key="precio_input")
-    val_usd = precio if es_usd else (precio / tasa)
-    st.markdown(f"<div class='price-value'>VALOR: {val_usd:.2f} $</div>", unsafe_allow_html=True)
+    st.markdown("### 🔎 Buscar producto")
+    
+    # Inicializar prod_sel
+    prod_sel = None
+    
+    # Opciones de búsqueda
+    buscar_por = st.radio("Buscar por:", ["Nombre", "Serial"], horizontal=True)
+    
+    if buscar_por == "Nombre":
+        busqueda = st.text_input(
+            "Nombre del producto:", 
+            placeholder="Escribe el nombre...",
+            key="busqueda_nombre"
+        )
+        
+        if busqueda:
+            df_filtrado = df_maestro[
+                df_maestro['nombre_producto'].str.contains(busqueda, case=False, na=False)
+            ]
+        else:
+            df_filtrado = df_maestro
+    else:
+        busqueda_serial = st.text_input(
+            "Serial:", 
+            placeholder="Escribe o escanea el código...",
+            key="busqueda_serial"
+        )
+        
+        if busqueda_serial:
+            df_filtrado = df_maestro[
+                df_maestro['serial'].astype(str).str.contains(busqueda_serial, case=False, na=False)
+            ]
+        else:
+            df_filtrado = df_maestro
+    
+    # Si hay producto escaneado y está en el filtro, preseleccionar
+    if st.session_state.scanner_producto and st.session_state.scanner_producto in df_filtrado['nombre_producto'].values:
+        prod_sel = st.session_state.scanner_producto
+        st.info(f"📌 Producto preseleccionado por escáner: {prod_sel[:60]}...")
+    
+    # Selector de producto
+    if not df_filtrado.empty:
+        opciones_productos = []
+        opciones_dict = {}
+        
+        for idx, row in df_filtrado.iterrows():
+            nombre_vista = row['nombre_vista']
+            serial = row['serial']
+            if len(nombre_vista) > 70:
+                nombre_vista = nombre_vista[:67] + "..."
+            etiqueta = f"{nombre_vista} | Serial: {serial}"
+            opciones_productos.append(etiqueta)
+            opciones_dict[etiqueta] = row['nombre_producto']
+        
+        # Determinar índice seleccionado
+        if prod_sel:
+            for etiqueta, nombre in opciones_dict.items():
+                if nombre == prod_sel:
+                    default_idx = opciones_productos.index(etiqueta)
+                    break
+            else:
+                default_idx = None
+        else:
+            default_idx = None
+        
+        prod_sel_etiqueta = st.selectbox(
+            "Seleccionar producto",
+            opciones_productos,
+            index=default_idx,
+            key="prod_sel_box"
+        )
+        
+        if prod_sel_etiqueta:
+            prod_sel = opciones_dict[prod_sel_etiqueta]
+    else:
+        st.warning("⚠️ No se encontraron productos")
+        prod_sel = None
+    
+    # Mostrar información del producto seleccionado
+    if prod_sel:
+        datos_producto = obtener_datos_producto(df_maestro, prod_sel)
+        st.markdown(formatear_producto(datos_producto), unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("### 💲 Precio")
+    
+    # Toggle para USD/VES
+    col_toggle, col_precio = st.columns([1, 2])
+    with col_toggle:
+        es_usd = st.toggle("USD / VES", value=True, key="moneda_toggle")
+        if es_usd:
+            st.caption("💵 Precio en **Dólares**")
+        else:
+            st.caption("🇻🇪 Precio en **Bolívares**")
+    
+    with col_precio:
+        precio = st.number_input(
+            "Precio marcado", 
+            min_value=0.0, 
+            step=0.01, 
+            format="%.2f",
+            key="precio_input"
+        )
+    
+    # Calcular valor en USD
+    if es_usd:
+        val_usd = precio
+        moneda_origen = "USD"
+    else:
+        val_usd = precio / tasa if tasa > 0 else 0
+        moneda_origen = "VES"
+    
+    st.markdown(f"<div class='price-value'>💲 VALOR: {val_usd:.2f} USD</div>", unsafe_allow_html=True)
+    
+    if not es_usd and precio > 0:
+        st.caption(f"💱 Conversión: {precio:,.2f} Bs ÷ {tasa:.2f} = {val_usd:.2f} USD")
 
-# 4. Transmisión
-if st.button("🚀 TRANSMITIR REGISTRO"):
+# ==========================================
+# 10. TRANSMISIÓN A SUPABASE
+# ==========================================
+
+st.markdown("---")
+col_btn1, col_btn2, col_btn3 = st.columns([2, 1.5, 2])
+with col_btn2:
+    enviar = st.button("🚀 TRANSMITIR REGISTRO", use_container_width=True)
+
+if enviar:
     if not prod_sel:
         st.error("⚠️ ¡Debes seleccionar un producto!")
+    elif precio <= 0:
+        st.error("⚠️ ¡Debes ingresar un precio válido!")
     else:
-        fila = df_maestro[df_maestro["nombre"] == prod_sel].iloc[0]
+        datos_producto = obtener_datos_producto(df_maestro, prod_sel)
+        
+        # Convertir foto a base64 si existe (para almacenar en Supabase)
+        foto_base64 = None
+        if foto:
+            try:
+                bytes_data = foto.getvalue()
+                foto_base64 = base64.b64encode(bytes_data).decode('utf-8')
+            except:
+                foto_base64 = None
+        
         payload = {
             "fecha_captura": str(datetime.date.today()),
             "vendedor": st.session_state.vendedor,
             "competencia": st.session_state.competencia,
-            "serial_escaneado": serial_manual if serial_manual else str(fila.get("serial", "N/A")),
+            "serial_escaneado": serial_manual if serial_manual else datos_producto.get("serial", "N/A"),
             "nombre_producto": str(prod_sel),
-            "segmento": str(fila.get("segmento", "N/A")),
-            "proveedor": str(fila.get("proveedor", "N/A")),
-            "rubro": str(fila.get("rubro", "N/A")),
-            "sub_categoria": str(fila.get("sub_categoria", "N/A")),
-            "moneda_origen": "USD" if es_usd else "VES",
+            "segmento": datos_producto.get("segmento", "No especificado"),
+            "proveedor": datos_producto.get("proveedor", "No especificado"),
+            "rubro": datos_producto.get("rubro", "No especificado"),
+            "sub_categoria": datos_producto.get("sub_categoria", "No especificado"),
+            "moneda_origen": moneda_origen,
             "precio_bruto_origen": float(precio),
             "tasa_bcv_momento": float(tasa),
             "precio_competencia_usd": float(val_usd),
-            "foto_url": "FOTO_ADJUNTA" if foto else "SIN FOTO"
+            "foto_url": "FOTO_ADJUNTA" if foto else "SIN FOTO",
+            "foto_base64": foto_base64
         }
         
-        headers = {"apikey": "sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Authorization": "Bearer sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Content-Type": "application/json"}
-        res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
+        with st.expander("📋 Resumen del registro", expanded=True):
+            st.markdown(f"""
+            - **👤 Auditor:** {payload['vendedor']}
+            - **🏪 Competencia:** {payload['competencia']}
+            - **📦 Producto:** {payload['nombre_producto'][:80]}...
+            - **🔢 Serial:** {payload['serial_escaneado']}
+            - **💲 Precio:** {payload['precio_competencia_usd']:.2f} USD
+            - **📂 Segmento:** {payload['segmento']}
+            - **🏭 Proveedor:** {payload['proveedor']}
+            - **📚 Rubro:** {payload['rubro']}
+            - **📌 Subcategoría:** {payload['sub_categoria']}
+            - **🖼️ Foto:** {payload['foto_url']}
+            """)
         
-        if res.status_code in [200, 201, 204]:
-            st.success("✅ ¡Registro enviado exitosamente!")
-            st.toast("Esperando nuevo producto...")
-            time.sleep(2) # Pausa para que el usuario lea el éxito
-            # Limpiar solo producto y precio
-            st.rerun()
-        else:
-            st.error(f"❌ Error: {res.text}")
+        headers = {
+            "apikey": "sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL",
+            "Authorization": "Bearer sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL",
+            "Content-Type": "application/json"
+        }
+        
+        with st.spinner("Enviando registro a Supabase..."):
+            try:
+                # Limpiar payload para enviar (quitar foto_base64 si es muy grande)
+                payload_clean = {k: v for k, v in payload.items() if k != "foto_base64"}
+                
+                res = requests.post(
+                    "https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check",
+                    headers=headers,
+                    json=payload_clean,
+                    timeout=15
+                )
+                
+                if res.status_code in [200, 201, 204]:
+                    st.markdown("""
+                    <div style="background-color: #1e5a3a; border-left: 5px solid #00ff88; padding: 15px; border-radius: 10px; margin: 10px 0;">
+                        <span style="display: inline-flex; align-items: center; justify-content: center; background-color: #00ff88; color: #1e5a3a; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; font-weight: bold; margin-right: 10px;">✓</span>
+                        <span style="color: #ffffff; font-weight: bold;">¡Registro enviado exitosamente a Supabase!</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.session_state.ultimo_producto = prod_sel
+                    st.session_state.ultimo_precio = val_usd
+                    st.session_state.ultimo_competencia = st.session_state.competencia
+                    st.session_state.scanner_producto = None
+                    
+                    # Respaldo local
+                    try:
+                        backup_file = "registros_backup.csv"
+                        df_nuevo = pd.DataFrame([payload_clean])
+                        if os.path.exists(backup_file):
+                            df_existente = pd.read_csv(backup_file)
+                            df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
+                        else:
+                            df_final = df_nuevo
+                        df_final.to_csv(backup_file, index=False, encoding="utf-8-sig")
+                    except:
+                        pass
+                    
+                    time.sleep(2)
+                    st.rerun()
+                else:
+                    st.error(f"❌ Error en Supabase: {res.text}")
+                    
+                    pendiente_file = "registros_pendientes.csv"
+                    df_nuevo = pd.DataFrame([payload_clean])
+                    if os.path.exists(pendiente_file):
+                        df_existente = pd.read_csv(pendiente_file)
+                        df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
+                    else:
+                        df_final = df_nuevo
+                    df_final.to_csv(pendiente_file, index=False, encoding="utf-8-sig")
+                    st.warning("⚠️ Registro guardado localmente")
+                    
+            except Exception as e:
+                st.error(f"❌ Error de conexión: {e}")
+                
+                pendiente_file = "registros_pendientes.csv"
+                df_nuevo = pd.DataFrame([payload_clean])
+                if os.path.exists(pendiente_file):
+                    df_existente = pd.read_csv(pendiente_file)
+                    df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
+                else:
+                    df_final = df_nuevo
+                df_final.to_csv(pendiente_file, index=False, encoding="utf-8-sig")
+                st.success("✅ Registro guardado localmente")
+
+# ==========================================
+# 11. MOSTRAR ÚLTIMO REGISTRO
+# ==========================================
+
+if st.session_state.ultimo_producto:
+    with st.expander("📌 Mi último registro", expanded=False):
+        st.markdown(f"""
+        <div class='ultimo-producto'>
+        <strong>📦 Producto:</strong> {st.session_state.ultimo_producto[:80]}...<br>
+        <strong>🏪 Competencia:</strong> {st.session_state.ultimo_competencia}<br>
+        <strong>💲 Precio:</strong> {st.session_state.ultimo_precio:.2f} USD
+        </div>
+        """, unsafe_allow_html=True)
+
+# ==========================================
+# 12. REGISTROS PENDIENTES
+# ==========================================
+
+pendiente_file = "registros_pendientes.csv"
+if os.path.exists(pendiente_file):
+    with st.expander("⏳ Mis registros pendientes", expanded=False):
+        df_pendientes = pd.read_csv(pendiente_file)
+        if 'vendedor' in df_pendientes.columns:
+            df_mis_pendientes = df_pendientes[df_pendientes['vendedor'] == st.session_state.vendedor]
+            if not df_mis_pendientes.empty:
+                st.warning(f"📋 {len(df_mis_pendientes)} registros pendientes")
+                st.dataframe(df_mis_pendientes[['fecha_captura', 'competencia', 'nombre_producto', 'precio_competencia_usd']])
+            else:
+                st.info("No tienes registros pendientes")
