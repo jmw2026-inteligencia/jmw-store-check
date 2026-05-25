@@ -5,29 +5,26 @@ import pandas as pd
 from bs4 import BeautifulSoup
 import urllib3
 
-# --- CONFIGURACIÓN ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# --- CONFIGURACIÓN E ICONOS ---
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
-# --- CSS OSCURO CORPORATIVO ---
 st.markdown("""
     <style>
-    /* Fondo oscuro global */
-    .stApp { background-color: #121212 !important; color: #e0e0e0 !important; font-family: 'Outfit', sans-serif !important; }
+    /* Fondo Azul Corporativo exacto */
+    .stApp { background-color: #367c87 !important; color: #ffffff !important; font-family: 'Outfit', sans-serif !important; }
+    h1 { color: #ffffff !important; text-align: center; font-weight: 800 !important; margin-bottom: 20px; }
     
-    /* Encabezados y texto */
-    h1 { color: #008080 !important; text-align: center; font-weight: 800 !important; margin-bottom: 20px; }
+    /* Cajas y Expanders */
+    .bcv-box { background: #2a616a; color: white; padding: 15px; border-radius: 12px; text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; border: 1px solid #ffffff; }
+    .price-value { font-size: 24px; font-weight: 800; color: #ff8c00; text-align: center; padding: 15px; border: 2px dashed #ff8c00; border-radius: 10px; margin-bottom: 20px; background: #ffffff; }
     
-    /* Box BCV y Precios */
-    .bcv-box { background: #1e1e1e; border: 1px solid #008080; color: #008080; padding: 15px; border-radius: 12px; text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
-    .price-value { font-size: 28px; font-weight: 800; color: #ff8c00; text-align: center; padding: 15px; border: 2px dashed #ff8c00; border-radius: 12px; margin-bottom: 20px; background: #2a2a2a; }
+    /* Botón Naranja */
+    div.stButton > button { background-color: #ff8c00 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; border-radius: 8px; }
     
-    /* Expanders y Inputs */
-    .stExpander { background-color: #1e1e1e !important; border-color: #333 !important; }
-    
-    /* Botón Transmitir */
-    div.stButton > button { background-color: #008080 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; border-radius: 8px; }
-    div.stButton > button:hover { background-color: #006666 !important; }
+    /* Ajuste de color texto */
+    .stSelectbox, .stTextInput, .stNumberInput { color: white !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -41,15 +38,18 @@ def cargar_maestro():
     df['nombre'] = df['nombre'].astype(str).str.strip()
     return df
 
-df_maestro = cargar_maestro()
+try:
+    df_maestro = cargar_maestro()
+    lista_productos = ["-- Seleccione --"] + df_maestro["nombre"].tolist()
+except:
+    st.error("Error al cargar el Excel. Asegúrate que está en la carpeta.")
+    lista_productos = ["-- Seleccione --"]
 
 # --- 2. TASA BCV ---
 def get_tasa():
     try:
         res = requests.get("https://www.bcv.org.ve/", headers={"User-Agent": "Mozilla/5.0"}, timeout=8, verify=False)
-        if res.status_code == 200:
-            return float(BeautifulSoup(res.text, 'html.parser').find(id="dolar").find('strong').text.strip().replace(',', '.'))
-        return 530.50
+        return float(BeautifulSoup(res.text, 'html.parser').find(id="dolar").find('strong').text.strip().replace(',', '.'))
     except: return 530.50
 
 tasa_bcv = get_tasa()
@@ -60,12 +60,13 @@ with st.expander("👤 1. Auditor y Punto de Venta", expanded=True):
     vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"], key="vendedor")
     competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"], key="competencia")
 
-with st.expander("📷 2. Escáner y Evidencia", expanded=True):
-    foto = st.camera_input("Capturar evidencia")
+with st.expander("📷 2. Evidencia y Serial", expanded=True):
+    tipo_foto = st.radio("Método de evidencia", ["Cámara", "Archivo"], horizontal=True)
+    foto = st.camera_input("Capturar cámara") if tipo_foto == "Cámara" else st.file_uploader("Subir imagen", type=['jpg', 'png'])
     serial_manual = st.text_input("Serial (Código de barras)", key="serial")
 
 with st.expander("📦 3. Producto y Precio", expanded=True):
-    producto = st.selectbox("Seleccionar Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist(), key="prod")
+    producto = st.selectbox("Seleccionar Producto", lista_productos, key="prod")
     es_usd = st.toggle("¿Precio en DÓLARES?", True)
     label_precio = "Precio Marcado ($)" if es_usd else "Precio Marcado (Bs)"
     precio = st.number_input(label_precio, min_value=0.0, step=0.01, key="precio")
@@ -92,7 +93,7 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
             "precio_bruto_origen": float(precio),
             "tasa_bcv_momento": float(tasa_bcv),
             "precio_competencia_usd": float(valor_usd),
-            "foto_url": "FOTO_TOMADA" if foto else "SIN FOTO"
+            "foto_url": "FOTO_ADJUNTA" if foto else "SIN FOTO"
         }
         
         headers = {"apikey": "sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Authorization": "Bearer sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Content-Type": "application/json"}
