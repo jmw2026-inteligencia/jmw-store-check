@@ -4,17 +4,17 @@ import datetime
 import pandas as pd
 from bs4 import BeautifulSoup
 
-# --- CONFIGURACIÓN E IDENTIDAD ---
+# --- CONFIGURACIÓN ---
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;600&display=swap');
-    .stApp { background-color: #f0f7f6 !important; font-family: 'Outfit', sans-serif !important; }
+    .stApp { background-color: #f8fbfb !important; font-family: 'Outfit', sans-serif !important; }
     h1 { color: #008080 !important; text-align: center; font-weight: 800 !important; }
-    .bcv-box { background: #008080; color: white; padding: 15px; border-radius: 15px; text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px; }
-    .price-box { background: #ffffff; color: #008080; padding: 20px; border-radius: 15px; text-align: center; font-size: 24px; font-weight: 800; border: 3px solid #008080; margin: 15px 0; }
-    .stButton>button { background: #008080 !important; color: white !important; font-weight: bold; border-radius: 12px; width: 100%; height: 3.5rem; }
+    .bcv-box { background: #008080; color: white; padding: 15px; border-radius: 15px; text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+    .price-box { background: #e0f2f1; color: #00695c; padding: 15px; border-radius: 10px; text-align: center; font-size: 20px; font-weight: bold; border: 2px solid #008080; }
+    .stButton>button { background: #008080 !important; color: white !important; border-radius: 8px; width: 100%; height: 3rem; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -34,8 +34,7 @@ df_maestro = cargar_maestro()
 @st.cache_data(ttl=3600)
 def get_tasa():
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get("https://www.bcv.org.ve/", headers=headers, timeout=10)
+        res = requests.get("https://www.bcv.org.ve/", headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
         soup = BeautifulSoup(res.text, 'html.parser')
         return float(soup.find(id="dolar").find('strong').text.strip().replace(',', '.'))
     except: return 530.50
@@ -44,27 +43,28 @@ tasa_bcv = get_tasa()
 st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa_bcv:.2f} Bs/$</div>", unsafe_allow_html=True)
 
 # --- 3. INTERFAZ ---
-with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
-    vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
+with st.expander("👤 Auditor y Punto de Venta", expanded=True):
+    vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"])
     competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"])
 
-with st.expander("📷 2. Escáner y Serial", expanded=True):
-    foto = st.camera_input("Tomar foto")
-    serial_manual = st.text_input("Código de Barras Manual")
+with st.expander("📷 Evidencia Fotográfica y Serial", expanded=True):
+    foto = st.camera_input("Capturar evidencia")
+    serial_manual = st.text_input("Serial (Código de barras)")
 
-with st.expander("📦 3. Seleccionar Producto", expanded=True):
-    producto = st.selectbox("Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist())
-
-with st.expander("💰 4. Registro de Precio", expanded=True):
-    es_usd = st.toggle("¿Precio en USD?", True)
-    precio = st.number_input("Precio Marcado", min_value=0.0)
-    valor_final = precio if es_usd else (precio / tasa_bcv)
-    st.markdown(f"<div class='price-box'>VALOR USD: {valor_final:.2f} $</div>", unsafe_allow_html=True)
+with st.expander("📦 Producto y Segmentación", expanded=True):
+    producto = st.selectbox("Seleccionar Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist())
+    
+    es_usd = st.toggle("¿El precio marcado es en DÓLARES?", True)
+    label_precio = "Precio Marcado en DÓLARES ($)" if es_usd else "Precio Marcado en BOLÍVARES (Bs)"
+    precio = st.number_input(label_precio, min_value=0.0, step=0.01)
+    
+    valor_usd = precio if es_usd else (precio / tasa_bcv)
+    st.markdown(f"<div class='price-box'>VALOR EN USD CALCULADO: {valor_usd:.2f} $</div>", unsafe_allow_html=True)
 
 # --- 4. TRANSMISIÓN ---
 if st.button("🚀 TRANSMITIR REGISTRO"):
     if producto == "-- Seleccione --":
-        st.error("¡Selecciona un producto!")
+        st.error("Por favor, selecciona un producto.")
     else:
         fila = df_maestro[df_maestro["nombre"] == producto].iloc[0]
         payload = {
@@ -80,7 +80,7 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
             "moneda_origen": "USD" if es_usd else "VES",
             "precio_bruto_origen": float(precio),
             "tasa_bcv_momento": float(tasa_bcv),
-            "precio_competencia_usd": float(valor_final),
+            "precio_competencia_usd": float(valor_usd),
             "foto_url": "FOTO_TOMADA" if foto else "SIN FOTO"
         }
         
@@ -94,6 +94,5 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
         
         if res.status_code in [200, 201, 204]:
             st.success("✅ ¡Registro enviado exitosamente!")
-            st.balloons()
         else:
-            st.error(f"Error: {res.text}")
+            st.error(f"Error técnico: {res.text}")
