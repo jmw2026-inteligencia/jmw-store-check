@@ -4,7 +4,7 @@ import datetime
 import pandas as pd
 from bs4 import BeautifulSoup
 
-# --- 1. CONFIGURACIÓN E IDENTIDAD ---
+# --- CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
 st.markdown("""
@@ -19,45 +19,38 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>JMW Store Check</h1>", unsafe_allow_html=True)
-st.markdown("<h2>Sistema de Monitoreo de Precios</h2>", unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN BCV (RECUPERADA) ---
+# --- CONEXIÓN BCV ---
 @st.cache_data(ttl=3600)
 def obtener_tasa_bcv():
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get("https://www.bcv.org.ve/", headers=headers, verify=False, timeout=10)
+        res = requests.get("https://www.bcv.org.ve/", headers={'User-Agent': 'Mozilla/5.0'}, verify=False, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
-        tasa_str = soup.find(id="dolar").find('strong').text.strip().replace(',', '.')
-        return float(tasa_str)
-    except:
-        return 530.50 # Valor de respaldo si falla el sitio
+        return float(soup.find(id="dolar").find('strong').text.strip().replace(',', '.'))
+    except: return 530.50
 
 tasa_bcv = obtener_tasa_bcv()
-st.markdown(f"<div class='info-msg'>Tasa BCV Actual: {tasa_bcv:.2f} Bs/$</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='info-msg'>Tasa BCV: {tasa_bcv:.2f} Bs/$</div>", unsafe_allow_html=True)
 
-# --- 3. DATOS ---
+# --- CARGA DE DATOS ---
 @st.cache_data(ttl=1800)
 def cargar_maestro_local():
     return pd.read_excel("IMPORTACION_ANALISIS_PRECIO.xlsx", sheet_name="PRODUCTOS")
 
 df_maestro = cargar_maestro_local()
 
-# --- 4. FORMULARIO ---
+# --- FORMULARIO ---
 if 'submitted' not in st.session_state: st.session_state['submitted'] = False
 
 if not st.session_state['submitted']:
     with st.form("form_final"):
         with st.expander("👤 Persona y Datos de Control", expanded=True):
             vendedor = st.selectbox("Vendedor", ["Jad", "Alexander", "Maria", "Juana"])
-            st.markdown("<span class='help-text'>Identifícate para registrar la autoría.</span>", unsafe_allow_html=True)
             competencia = st.selectbox("Establecimiento", ["Competencia1", "Competencia2", "Competencia3", "Otro"])
-            st.markdown("<span class='help-text'>Local auditado.</span>", unsafe_allow_html=True)
         
         with st.expander("📷 Escáner"):
             st.camera_input("Enfocar")
             serial = st.text_input("Código de Barras")
-            st.markdown("<span class='help-text'>Usa la cámara o ingresa el código manual.</span>", unsafe_allow_html=True)
 
         producto_sel = st.selectbox("Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist())
         moneda = st.radio("Moneda:", ["Bolívares (Bs)", "Dólares ($)"], horizontal=True)
@@ -68,11 +61,12 @@ if not st.session_state['submitted']:
                 st.error("Seleccione un producto.")
             else:
                 info = df_maestro[df_maestro["nombre"] == producto_sel].iloc[0]
+                # ESTE PAYLOAD TIENE LAS COLUMNAS EXACTAS DE TU BASE DE DATOS ORIGINAL
                 payload = {
                     "fecha_captura": str(datetime.date.today()),
                     "vendedor": str(vendedor),
                     "competencia": str(competencia),
-                    "serial_escaneado": str(serial) if serial else "N/A",
+                    "serial_escaneado": str(serial) if serial else str(info.get("serial", "N/A")),
                     "nombre_producto": str(producto_sel),
                     "segmento": str(info.get("segmento1", "N/A")),
                     "proveedor": str(info.get("proveedor", "N/A")),
