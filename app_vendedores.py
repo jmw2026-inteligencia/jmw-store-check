@@ -9,14 +9,25 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
+# --- CSS OSCURO CORPORATIVO ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;600&display=swap');
-    .stApp { font-family: 'Outfit', sans-serif !important; background-color: #f8fbfb !important; }
+    /* Fondo oscuro global */
+    .stApp { background-color: #121212 !important; color: #e0e0e0 !important; font-family: 'Outfit', sans-serif !important; }
+    
+    /* Encabezados y texto */
     h1 { color: #008080 !important; text-align: center; font-weight: 800 !important; margin-bottom: 20px; }
-    .bcv-box { background: #008080; color: white; padding: 12px; border-radius: 12px; text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 20px; }
-    .price-value { font-size: 24px; font-weight: 800; color: #ff8c00; text-align: center; padding: 10px; border: 2px dashed #ff8c00; border-radius: 10px; margin-bottom: 20px; }
-    div.stButton > button { background-color: #ff8c00 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; }
+    
+    /* Box BCV y Precios */
+    .bcv-box { background: #1e1e1e; border: 1px solid #008080; color: #008080; padding: 15px; border-radius: 12px; text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+    .price-value { font-size: 28px; font-weight: 800; color: #ff8c00; text-align: center; padding: 15px; border: 2px dashed #ff8c00; border-radius: 12px; margin-bottom: 20px; background: #2a2a2a; }
+    
+    /* Expanders y Inputs */
+    .stExpander { background-color: #1e1e1e !important; border-color: #333 !important; }
+    
+    /* Botón Transmitir */
+    div.stButton > button { background-color: #008080 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; border-radius: 8px; }
+    div.stButton > button:hover { background-color: #006666 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -88,10 +99,10 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
         res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
         
         if res.status_code in [200, 201, 204]:
-            st.success("✅ ¡Registro enviado!")
+            st.success("✅ ¡Registro enviado exitosamente!")
             st.session_state.serial = ""
             st.session_state.precio = 0.0
             st.session_state.prod = "-- Seleccione --"
             st.rerun()
         else:
-            st.error(f"❌ Error: {res.text}")
+            st.error(f"❌ Error al transmitir: {res.text}")
