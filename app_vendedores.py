@@ -3,73 +3,70 @@ import requests
 import datetime
 import pandas as pd
 from bs4 import BeautifulSoup
-import urllib3
+import os
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
+# --- CONFIGURACIÓN ---
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
 st.markdown("""
     <style>
     .stApp { background-color: #f8fbfb !important; }
     h1 { color: #008080 !important; text-align: center; font-weight: 800 !important; }
-    .bcv-box { background: #008080; color: white; padding: 12px; border-radius: 12px; text-align: center; font-weight: bold; margin-bottom: 15px; }
-    .price-value { font-size: 24px; font-weight: 800; color: #ff8c00; text-align: center; padding: 10px; border: 2px dashed #ff8c00; border-radius: 10px; }
-    div.stButton > button { background-color: #ff8c00 !important; color: white !important; font-weight: bold; height: 3.5rem; width: 100%; }
+    .bcv-box { background: #008080; color: white; padding: 12px; border-radius: 12px; text-align: center; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>📊 JMW Store Check</h1>", unsafe_allow_html=True)
 
-# --- CARGA DATOS ---
+# --- 1. CARGA SEGURA DE DATOS ---
 @st.cache_data(ttl=600)
 def get_maestro():
-    df = pd.read_excel("IMPORTACION_ANALISIS_PRECIO.xlsx", sheet_name="PRODUCTOS")
+    archivo = "IMPORTACION_ANALISIS_PRECIO.xlsx"
+    if not os.path.exists(archivo):
+        return None # Devuelve None si no existe el archivo
+    df = pd.read_excel(archivo, sheet_name="PRODUCTOS")
     df.columns = [str(c).lower().strip().replace(" ", "_") for c in df.columns]
     df['nombre'] = df['nombre'].astype(str).str.strip()
     return df
 
+df_maestro = get_maestro()
+
+if df_maestro is None:
+    st.error("⚠️ ERROR: No se encuentra el archivo 'IMPORTACION_ANALISIS_PRECIO.xlsx'. Por favor, súbelo a la carpeta del proyecto.")
+    st.stop() # Detiene la ejecución aquí para que no de error
+
+# --- 2. TASA BCV ---
 def get_tasa():
     try:
-        res = requests.get("https://www.bcv.org.ve/", headers={"User-Agent": "Mozilla/5.0"}, timeout=8, verify=False)
-        if res.status_code == 200:
-            return float(BeautifulSoup(res.text, 'html.parser').find(id="dolar").find('strong').text.strip().replace(',', '.'))
-        return 530.50
+        res = requests.get("https://www.bcv.org.ve/", headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        return float(soup.find(id="dolar").find('strong').text.strip().replace(',', '.'))
     except: return 530.50
 
-df_maestro = get_maestro()
 tasa_bcv = get_tasa()
 st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa_bcv:.2f} Bs/$</div>", unsafe_allow_html=True)
 
-# --- INTERFAZ ---
-with st.expander("👤 Auditor y Establecimiento", expanded=True):
-    vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"], key="vendedor")
-    competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"], key="competencia")
+# --- 3. INTERFAZ ---
+vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"], key="vendedor")
+competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"], key="competencia")
 
-with st.expander("📷 Evidencia y Serial", expanded=True):
-    # Opción de foto flexible
-    tipo_foto = st.radio("¿Cómo desea registrar la evidencia?", ["Tomar Foto (Cámara)", "Subir Archivo"], horizontal=True)
-    if tipo_foto == "Tomar Foto (Cámara)":
-        foto = st.camera_input("Capturar foto del producto/mostrador")
-    else:
-        foto = st.file_uploader("Subir foto desde dispositivo", type=['jpg', 'png', 'jpeg'])
-    
-    # Serial manual obligatorio o automático
-    serial_manual = st.text_input("Ingresar Serial (Código de Barras)", placeholder="Ej: 7591234567890", key="serial")
+# Foto y Serial
+tipo_foto = st.radio("Evidencia", ["Cámara", "Archivo"], horizontal=True)
+foto = st.camera_input("Capturar") if tipo_foto == "Cámara" else st.file_uploader("Subir", type=['jpg'])
+serial_manual = st.text_input("Serial", key="serial")
 
-with st.expander("📦 Producto y Precio", expanded=True):
-    producto = st.selectbox("Seleccionar Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist(), key="prod")
-    es_usd = st.toggle("¿Precio en DÓLARES?", True)
-    label_precio = "Precio Marcado ($)" if es_usd else "Precio Marcado (Bs)"
-    precio = st.number_input(label_precio, min_value=0.0, step=0.01, key="precio")
-    
-    valor_usd = precio if es_usd else (precio / tasa_bcv)
-    st.markdown(f"<div class='price-value'>VALOR: {valor_usd:.2f} $</div>", unsafe_allow_html=True)
+# Producto
+producto = st.selectbox("Seleccionar Producto", ["-- Seleccione --"] + df_maestro["nombre"].tolist(), key="prod")
 
-# --- TRANSMISIÓN ---
-if st.button("🚀 TRANSMITIR REGISTRO"):
+es_usd = st.toggle("¿Precio en DÓLARES?", True)
+precio = st.number_input("Precio Marcado", min_value=0.0, step=0.01, key="precio")
+valor_usd = precio if es_usd else (precio / tasa_bcv)
+st.write(f"### Valor en USD: {valor_usd:.2f} $")
+
+# --- 4. TRANSMISIÓN ---
+if st.button("🚀 TRANSMITIR"):
     if producto == "-- Seleccione --":
-        st.error("⚠️ ¡Debes seleccionar un producto!")
+        st.error("Selecciona un producto.")
     else:
         fila = df_maestro[df_maestro["nombre"] == producto].iloc[0]
         payload = {
@@ -86,17 +83,17 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
             "precio_bruto_origen": float(precio),
             "tasa_bcv_momento": float(tasa_bcv),
             "precio_competencia_usd": float(valor_usd),
-            "foto_url": "FOTO_ADJUNTA" if foto else "SIN FOTO"
+            "foto_url": "FOTO_TOMADA" if foto else "SIN FOTO"
         }
         
         headers = {"apikey": "sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Authorization": "Bearer sb_publishable_ZSFE2QL0Bh1VwPHq2lEHlw_ENCm5FfL", "Content-Type": "application/json"}
         res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
         
         if res.status_code in [200, 201, 204]:
-            st.success("✅ Registro enviado!")
+            st.success("✅ ¡Enviado!")
             st.session_state.serial = ""
             st.session_state.precio = 0.0
             st.session_state.prod = "-- Seleccione --"
             st.rerun()
         else:
-            st.error(f"❌ Error: {res.text}")
+            st.error(f"Error: {res.text}")
