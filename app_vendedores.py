@@ -7,25 +7,27 @@ import urllib3
 import time
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
-# --- CSS MEJORADO (Sin negros) ---
+# --- CSS INTEGRAL ---
 st.markdown("""
     <style>
     .stApp { background-color: #367c87 !important; }
-    h1, .stMarkdown, label { color: #ffffff !important; }
-    /* Selectores en naranja claro */
-    div[data-baseweb="select"], div[data-baseweb="input"], .stNumberInput input { 
+    h1, .stMarkdown, label, .stExpander { color: #ffffff !important; }
+    /* Naranja claro para todos los inputs y selectores */
+    div[data-baseweb="select"], div[data-baseweb="input"], .stNumberInput input, .stTextInput input { 
         background-color: #fff2e6 !important; color: #333 !important; 
     }
+    /* Fuente reducida en selectores para nombres largos */
+    div[data-baseweb="select"] { font-size: 13px !important; }
+    
     .bcv-box { background: #2a616a; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; border: 1px solid #ffffff; margin-bottom: 20px; }
     .price-value { font-size: 24px; font-weight: 800; color: #ff8c00; background: #ffffff; text-align: center; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
     div.stButton > button { background-color: #ff8c00 !important; color: white !important; font-weight: bold; border: none; height: 3.5rem; width: 100%; border-radius: 8px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ESTADO DE SESIÓN ---
+# --- ESTADO Y LIMPIEZA ---
 if 'vendedor' not in st.session_state: st.session_state.vendedor = "Jad"
 if 'competencia' not in st.session_state: st.session_state.competencia = "Forum"
 
@@ -34,6 +36,8 @@ if 'competencia' not in st.session_state: st.session_state.competencia = "Forum"
 def cargar_maestro():
     df = pd.read_excel("IMPORTACION_ANALISIS_PRECIO.xlsx", sheet_name="PRODUCTOS")
     df.columns = [str(c).lower().strip().replace(" ", "_") for c in df.columns]
+    # Aplicar formato Título aquí mismo para que siempre se vea bien
+    df['nombre'] = df['nombre'].astype(str).str.strip().str.title()
     return df
 
 df_maestro = cargar_maestro()
@@ -47,14 +51,14 @@ try:
 except: tasa = 530.50
 st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa:.2f} Bs/$</div>", unsafe_allow_html=True)
 
-# 1. Auditor (Persistente)
+# 1. Auditor
 with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
     st.session_state.vendedor = st.selectbox("Auditor", ["Jad", "Alexander", "Maria", "Juana"], index=["Jad", "Alexander", "Maria", "Juana"].index(st.session_state.vendedor))
     st.session_state.competencia = st.selectbox("Establecimiento", ["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"], index=["Forum", "Gama", "Plaza", "Central Madeirense", "Otros"].index(st.session_state.competencia))
 
 # 2. Evidencia
 with st.expander("📷 2. Escáner y Evidencia", expanded=True):
-    tipo_foto = st.radio("Método", ["Cámara", "Archivo"], horizontal=True)
+    tipo_foto = st.radio("Método", ["Cámara", "Archivo"], horizontal=True, key="metodo_foto")
     foto = st.camera_input("Capturar") if tipo_foto == "Cámara" else st.file_uploader("Subir imagen", type=['jpg', 'png'])
     serial_manual = st.text_input("Serial (Código de barras)", key="serial_input")
 
@@ -95,10 +99,13 @@ if st.button("🚀 TRANSMITIR REGISTRO"):
         res = requests.post("https://ofpqnoinvpumkfifiera.supabase.co/rest/v1/store_check", headers=headers, json=payload)
         
         if res.status_code in [200, 201, 204]:
-            st.success("✅ ¡Registro enviado exitosamente!")
-            st.toast("Esperando nuevo producto...")
-            time.sleep(2) # Pausa para que el usuario lea el éxito
-            # Limpiar solo producto y precio
+            st.success("✅ ¡Registro exitoso!")
+            # Limpieza total de los campos de la sección 3
+            st.session_state.busqueda = ""
+            st.session_state.prod_sel = None
+            st.session_state.precio_input = 0.0
+            st.session_state.serial_input = ""
+            time.sleep(1)
             st.rerun()
         else:
             st.error(f"❌ Error: {res.text}")
