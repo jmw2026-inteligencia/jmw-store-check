@@ -341,16 +341,20 @@ with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
     with col1:
         st.session_state.vendedor = st.selectbox(
             "Auditor", 
-            ["Jad", "Alexander", "Maria", "Juana","Pedro"],
-            index=["Jad", "Alexander", "Maria", "Juana","Pedro"].index(st.session_state.vendedor)
+            ["Clay", "Alexander", "Romina", "Juana","Pedro"],
+            index=["Clay", "Alexander", "Romina", "Juana","Pedro"].index(st.session_state.vendedor)
         )
     with col2:
         competidores = [
-            "MIFARMA LPTA", "MIFARMA RAF GONZ / DIMAWORLD",
-            "MIFARMA CENTRO", "MI FARMA JACIN LARA / SUPER 900",
-            "FARMA OFERTA / BARATILLO", "MEGA FARMA / RAMI 2020",
-            "LA ECONOMIA / SIRENA", "Otros"
-        ]
+            "MIFARMA LPTA",
+            "MIFARMA RAF GONZ", 
+            "MIFARMA CENTRO",
+            "MI FARMA JACIN LARA",
+            "FARMA OFERTA",
+            "MEGA FARMA",
+            "LA ECONOMIA",
+            "Otros"
+            ]
         st.session_state.competencia = st.selectbox(
             "Establecimiento",
             competidores,
