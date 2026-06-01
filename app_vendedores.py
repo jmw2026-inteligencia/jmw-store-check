@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import requests
 import datetime
@@ -213,9 +214,9 @@ st.markdown("""
 # ==========================================
 
 if 'vendedor' not in st.session_state:
-    st.session_state.vendedor = "Jad"
+    st.session_state.vendedor = "Clay"
 if 'competencia' not in st.session_state:
-    st.session_state.competencia = "Forum"
+    st.session_state.competencia = "MIFARMA LPTA"
 if 'ultimo_producto' not in st.session_state:
     st.session_state.ultimo_producto = None
 if 'ultimo_precio' not in st.session_state:
@@ -339,10 +340,11 @@ st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa:.2f} Bs/$</div>", un
 with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
+        auditores = ["Clay", "Alexander", "Romina", "Juana", "Pedro"]
         st.session_state.vendedor = st.selectbox(
             "Auditor", 
-            ["Clay", "Alexander", "Romina", "Juana","Pedro"],
-            index=["Clay", "Alexander", "Romina", "Juana","Pedro"].index(st.session_state.vendedor)
+            auditores,
+            index=auditores.index(st.session_state.vendedor) if st.session_state.vendedor in auditores else 0
         )
     with col2:
         competidores = [
@@ -354,7 +356,7 @@ with st.expander("👤 1. Auditor y Establecimiento", expanded=True):
             "MEGA FARMA",
             "LA ECONOMIA",
             "Otros"
-            ]
+        ]
         st.session_state.competencia = st.selectbox(
             "Establecimiento",
             competidores,
