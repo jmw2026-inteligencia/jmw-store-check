@@ -16,7 +16,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="JMW Store Check", layout="centered")
 
 # ==========================================
-# 1. CSS COMPLETO (IGUAL QUE ANTES)
+# 1. CSS COMPLETO
 # ==========================================
 
 st.markdown("""
@@ -48,42 +48,116 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. CONFIGURACIÓN DE ZONAS, COMPETIDORES Y AUDITORES
+# 2. CONFIGURACIÓN DE AUDITORES, ZONAS, SECTORES Y COMPETIDORES
 # ==========================================
 
-# Diccionario: ZONA -> COMPETIDORES
-COMPETIDORES_POR_ZONA = {
-    "Barquisimeto": ["Nuevo Siglo", "Farma Clinica Verde", "San Ignacio"],
-    "Tucacas": ["Farmartodo", "Costa Azul"],
-    "San Felipe": ["Farma Ganga", "Farmatodo", "Farma Bien", "La Economia"],
-    "Aroa": ["Satelnet"],
-    "Cabudare": ["Farma Clinica Verde", "San Ignacio"],
-    "Chivacoa": ["La Economia"]
+# Diccionario completo: AUDITOR -> (ZONA, SECTOR, COMPETIDORES_PERMITIDOS)
+AUDITORES_CONFIG = {
+    # ===== PUNTO FIJO - CAJA DE AGUA =====
+    "Jessica Yajure": {
+        "zona": "Punto Fijo",
+        "sector": "Caja de Agua",
+        "competencias": ["Super 900", "MI FARMA", "Farmacias DIMAWORD", "TU CARNE"]
+    },
+    "Orlando Goitia": {
+        "zona": "Punto Fijo",
+        "sector": "Caja de Agua",
+        "competencias": ["Super 900", "MI FARMA", "Farmacias DIMAWORD", "TU CARNE"]
+    },
+    "Jesus Garrido": {
+        "zona": "Punto Fijo",
+        "sector": "Caja de Agua",
+        "competencias": ["Super 900", "MI FARMA", "Farmacias DIMAWORD", "TU CARNE"]
+    },
+    
+    # ===== PUNTO FIJO - LA PUERTA =====
+    "Jose Guaricuco": {
+        "zona": "Punto Fijo",
+        "sector": "La Puerta",
+        "competencias": ["Farmatodo", "MI FARMA", "Farmacias DIMAWORD", "Super 900"]
+    },
+    "Andres Guanipa": {
+        "zona": "Punto Fijo",
+        "sector": "La Puerta",
+        "competencias": ["Farmatodo", "MI FARMA", "Farmacias DIMAWORD", "Super 900"]
+    },
+    
+    # ===== PUNTO FIJO - SANTA IRENE =====
+    "Carlos Silva": {
+        "zona": "Punto Fijo",
+        "sector": "Santa Irene",
+        "competencias": ["MI FARMA", "FARMATODO", "Super 900", "FARMACIAS SAAS"]
+    },
+    "Marianny Camejo": {
+        "zona": "Punto Fijo",
+        "sector": "Santa Irene",
+        "competencias": ["MI FARMA", "FARMATODO", "Super 900", "FARMACIAS SAAS"]
+    },
+    "Natan Trocoso": {
+        "zona": "Punto Fijo",
+        "sector": "Santa Irene",
+        "competencias": ["MI FARMA", "FARMATODO", "Super 900", "FARMACIAS SAAS"]
+    },
+    
+    # ===== PUNTO FIJO - SANTA MARIA =====
+    "Ronny Leal": {
+        "zona": "Punto Fijo",
+        "sector": "Santa Maria",
+        "competencias": ["MI FARMA", "BAIK", "CASA CHINA", "Super 900"]
+    },
+    "Rhonal Hernandez": {
+        "zona": "Punto Fijo",
+        "sector": "Santa Maria",
+        "competencias": ["MI FARMA", "BAIK", "CASA CHINA", "Super 900"]
+    },
+    
+    # ===== CORO - LAS CALDERAS =====
+    "Jose Marquez": {
+        "zona": "Coro",
+        "sector": "Las Calderas",
+        "competencias": ["BARATILLO", "FARMA OFERTAS", "FARMACIA GUAMACHO", "MEGA OFERTAS"]
+    },
+    "Jose Reyes": {
+        "zona": "Coro",
+        "sector": "Las Calderas",
+        "competencias": ["BARATILLO", "FARMA OFERTAS", "FARMACIA GUAMACHO", "MEGA OFERTAS"]
+    },
+    
+    # ===== CORO - MERCADO VIEJO =====
+    "Yenireth Pachano": {
+        "zona": "Coro",
+        "sector": "Mercado Viejo",
+        "competencias": ["Rami Centro 2026", "YUSI 900", "MEGA OFERTAS", "FARMA OFERTAS"]
+    },
 }
 
-# Diccionario: ZONA -> AUDITORES
-AUDITORES_POR_ZONA = {
-    "Barquisimeto": ["Astrid Carrillo", "Ernesto Sanchez", "Miguel Moly"],
-    "Aroa": ["Miguel Moly", "Astrid Martinez"],
-    "San Felipe": ["Jose Pinto", "Jorge Loyo"],
-    "Tucacas": ["Genesis Quintero", "Katherine Rojas"],
-    "Chivacoa": ["Dayerlin Silvira", "Yonathan Mujica"],
-    "Cabudare": ["Carmen Lobo"]
-}
+# Lista de auditores para el selectbox
+AUDITORES = list(AUDITORES_CONFIG.keys())
 
-# Lista de zonas
-ZONAS = list(COMPETIDORES_POR_ZONA.keys())
+def obtener_competencias_por_auditor(auditor):
+    """Devuelve la lista de competidores que puede elegir un auditor"""
+    return AUDITORES_CONFIG.get(auditor, {}).get("competencias", [])
+
+def obtener_zona_por_auditor(auditor):
+    """Devuelve la zona del auditor"""
+    return AUDITORES_CONFIG.get(auditor, {}).get("zona", "")
+
+def obtener_sector_por_auditor(auditor):
+    """Devuelve el sector del auditor"""
+    return AUDITORES_CONFIG.get(auditor, {}).get("sector", "")
 
 # ==========================================
 # 3. ESTADO DE SESIÓN
 # ==========================================
 
-if 'zona' not in st.session_state:
-    st.session_state.zona = "Barquisimeto"
 if 'vendedor' not in st.session_state:
-    st.session_state.vendedor = "Astrid Carrillo"
+    st.session_state.vendedor = "Jessica Yajure"
+if 'zona' not in st.session_state:
+    st.session_state.zona = "Punto Fijo"
+if 'sector' not in st.session_state:
+    st.session_state.sector = "Caja de Agua"
 if 'competencia' not in st.session_state:
-    st.session_state.competencia = "Nuevo Siglo"
+    st.session_state.competencia = "Super 900"
 if 'ultimo_producto' not in st.session_state:
     st.session_state.ultimo_producto = None
 if 'ultimo_precio' not in st.session_state:
@@ -190,23 +264,33 @@ except:
 st.markdown(f"<div class='bcv-box'>🇻🇪 Tasa BCV: {tasa:.2f} Bs/$</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 8. AUDITOR, ZONA Y ESTABLECIMIENTO (NUEVO CON FILTROS)
+# 8. AUDITOR, ZONA, SECTOR Y ESTABLECIMIENTO (NUEVO)
 # ==========================================
 
 with st.expander("👤 1. Auditor, Zona y Establecimiento", expanded=True):
-    # Seleccionar ZONA (esto filtra competidores y auditores)
-    zona = st.selectbox("📍 Zona", ZONAS, key="zona_selector")
-    st.session_state.zona = zona
+    # PASO 1: Seleccionar AUDITOR
+    auditor = st.selectbox("👤 Auditor", AUDITORES, key="auditor_selector")
+    st.session_state.vendedor = auditor
     
-    # Seleccionar COMPETIDOR (filtrado por zona)
-    competidores_disponibles = COMPETIDORES_POR_ZONA.get(zona, [])
+    # PASO 2: Obtener zona, sector y competidores automáticamente
+    zona = obtener_zona_por_auditor(auditor)
+    sector = obtener_sector_por_auditor(auditor)
+    competidores_disponibles = obtener_competencias_por_auditor(auditor)
+    
+    # Mostrar información de zona y sector (solo lectura)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(f"📍 Zona: {zona}")
+    with col2:
+        st.info(f"📌 Sector: {sector}")
+    
+    # PASO 3: Seleccionar COMPETIDOR (filtrado por auditor)
     competencia = st.selectbox("🏪 Establecimiento", competidores_disponibles, key="competencia_selector")
-    st.session_state.competencia = competencia
     
-    # Seleccionar AUDITOR (filtrado por zona)
-    auditores_disponibles = AUDITORES_POR_ZONA.get(zona, [])
-    vendedor = st.selectbox("👤 Auditor", auditores_disponibles, key="auditor_selector")
-    st.session_state.vendedor = vendedor
+    # Guardar en session_state
+    st.session_state.zona = zona
+    st.session_state.sector = sector
+    st.session_state.competencia = competencia
 
 # ==========================================
 # 9. EVIDENCIA (CÁMARA / ESCÁNER)
@@ -355,6 +439,7 @@ if enviar:
             "vendedor": st.session_state.vendedor,
             "competencia": st.session_state.competencia,
             "zona": st.session_state.zona,
+            "sector": st.session_state.sector,  # <-- NUEVO CAMPO
             "serial_escaneado": serial_manual if serial_manual else datos_producto.get("serial", "N/A"),
             "nombre_producto": str(prod_sel),
             "segmento": datos_producto.get("segmento", "No especificado"),
@@ -372,6 +457,7 @@ if enviar:
         with st.expander("📋 Resumen del registro", expanded=True):
             st.markdown(f"""
             - **📍 Zona:** {payload['zona']}
+            - **📌 Sector:** {payload['sector']}
             - **👤 Auditor:** {payload['vendedor']}
             - **🏪 Competencia:** {payload['competencia']}
             - **📦 Producto:** {payload['nombre_producto'][:80]}...
@@ -460,6 +546,7 @@ if st.session_state.ultimo_producto:
         st.markdown(f"""
         <div class='ultimo-producto'>
         <strong>📍 Zona:</strong> {st.session_state.zona}<br>
+        <strong>📌 Sector:</strong> {st.session_state.sector}<br>
         <strong>👤 Auditor:</strong> {st.session_state.vendedor}<br>
         <strong>🏪 Competencia:</strong> {st.session_state.ultimo_competencia}<br>
         <strong>📦 Producto:</strong> {st.session_state.ultimo_producto[:80]}...<br>
