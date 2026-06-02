@@ -3,3 +3,4 @@ requests
 beautifulsoup4
 opencv-python-headless
 openpyxl
+plotly>=5.17.0
