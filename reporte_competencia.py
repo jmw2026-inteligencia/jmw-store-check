@@ -97,6 +97,7 @@ def procesar_datos(df):
         'competencia': 'Competencia',
         'zona': 'Zona',
         'nombre_producto': 'Producto',
+        'precio_competencia_usd': 'Precio USD',
         'fecha': 'Fecha',
         'dia_semana_es': 'Día Semana'
     }
@@ -177,12 +178,9 @@ def grafico_registros_por_dia(df):
 def grafico_top_auditores(df):
     if 'Auditor' not in df.columns:
         return
-    # Ordenar de mayor a menor (el que más registros tiene arriba)
     top = df['Auditor'].value_counts().head(10).reset_index()
     top.columns = ['Auditor', 'Registros']
-    # Invertir orden para que el de más registros aparezca arriba en la visualización
     top = top.sort_values('Registros', ascending=True)
-    # Acortar nombres largos
     top['Auditor'] = top['Auditor'].apply(lambda x: x[:30] + "..." if len(x) > 30 else x)
     fig = px.bar(top, x='Registros', y='Auditor', orientation='h',
                  title='🏆 Top 10 Auditores por Cantidad de Registros',
@@ -212,25 +210,27 @@ def grafico_registros_por_zona(df):
                       font=dict(color='white', size=12), title_font=dict(color='white', size=16))
     st.plotly_chart(fig, use_container_width=True)
 
-def grafico_top_sku(df):
-    if 'Producto' not in df.columns:
+def grafico_top_sku_precio(df):
+    """Top 10 SKU con mayor precio promedio"""
+    if 'Producto' not in df.columns or 'Precio USD' not in df.columns:
         return
-    top_sku = df['Producto'].value_counts().head(10).reset_index()
-    top_sku.columns = ['Producto', 'Registros']
-    top_sku = top_sku.sort_values('Registros', ascending=True)
-    top_sku['Producto'] = top_sku['Producto'].apply(lambda x: x[:45] + "..." if len(x) > 45 else x)
-    fig = px.bar(top_sku, x='Registros', y='Producto', orientation='h',
-                 title='📦 Top 10 SKU más registrados',
-                 labels={'Registros': 'Cantidad de Registros', 'Producto': 'Producto'},
-                 color='Registros', color_continuous_scale='Oranges',
-                 text='Registros')
-    fig.update_traces(texttemplate='%{x}', textposition='outside', 
+    top_precio = df.groupby('Producto')['Precio USD'].mean().sort_values(ascending=False).head(10).reset_index()
+    top_precio.columns = ['Producto', 'Precio Promedio USD']
+    top_precio = top_precio.sort_values('Precio Promedio USD', ascending=True)
+    top_precio['Producto'] = top_precio['Producto'].apply(lambda x: x[:45] + "..." if len(x) > 45 else x)
+    
+    fig = px.bar(top_precio, x='Precio Promedio USD', y='Producto', orientation='h',
+                 title='💰 Top 10 SKU con Mayor Precio Promedio (USD)',
+                 labels={'Precio Promedio USD': 'Precio Promedio (USD)', 'Producto': 'Producto'},
+                 color='Precio Promedio USD', color_continuous_scale='Oranges',
+                 text='Precio Promedio USD')
+    fig.update_traces(texttemplate='%{x:.2f} USD', textposition='outside', 
                       textfont=dict(color='white', size=11, weight='bold'))
     fig.update_layout(paper_bgcolor='#0d2a30', plot_bgcolor='#0d2a30', 
                       font=dict(color='white', size=12), title_font=dict(color='white', size=16),
                       height=550)
     fig.update_xaxes(title_font_color='white', tickfont_color='white', gridcolor='#2a5a65',
-                     tickformat='d', tick0=0, dtick=1)
+                     tickprefix='$ ', tickformat='.2f')
     fig.update_yaxes(title_font_color='white', tickfont_color='white', gridcolor='#2a5a65')
     st.plotly_chart(fig, use_container_width=True)
 
@@ -291,7 +291,11 @@ def tabla_detallada(df):
     if filtro_competencia != 'Todas':
         df_filtrado = df_filtrado[df_filtrado['Competencia'] == filtro_competencia]
     
+    # Agregar columna de Precio USD si existe
     columnas_mostrar = ['Fecha', 'Día Semana', 'Zona', 'Auditor', 'Competencia', 'Producto']
+    if 'Precio USD' in df_filtrado.columns:
+        columnas_mostrar.append('Precio USD')
+    
     columnas_existentes = [col for col in columnas_mostrar if col in df_filtrado.columns]
     st.dataframe(df_filtrado[columnas_existentes], use_container_width=True, height=400)
     
@@ -349,7 +353,7 @@ def main():
     with col3:
         grafico_registros_por_zona(df_filtrado)
     with col4:
-        grafico_top_sku(df_filtrado)
+        grafico_top_sku_precio(df_filtrado)
     
     col5, col6 = st.columns(2)
     with col5:
