@@ -21,7 +21,7 @@ HEADERS = {
 }
 
 # ==========================================
-# 2. ESTILOS
+# 2. ESTILOS (con fondo oscuro para filtros)
 # ==========================================
 
 st.markdown("""
@@ -29,25 +29,52 @@ st.markdown("""
     .stApp { background-color: #0d2a30 !important; }
     h1, h2, h3, h4, h5, h6 { color: #ffffff !important; font-weight: bold !important; }
     .stMarkdown, p, span, div { color: #ffffff !important; }
-    .stSelectbox label, .stDateInput label { color: #ffffff !important; font-weight: bold !important; }
-    div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
-        background-color: #f5f5f5 !important; border-radius: 8px !important;
+    
+    /* Labels de filtros - BLANCOS */
+    .stSelectbox label, .stDateInput label, .stMultiSelect label, .stCheckbox label {
+        color: #ffffff !important;
+        font-weight: bold !important;
     }
-    div[data-baseweb="select"] * { color: #1a1a1a !important; }
-    input, textarea { color: #1a1a1a !important; background-color: #f5f5f5 !important; }
-    .stDateInput input { color: #1a1a1a !important; background-color: #f5f5f5 !important; }
+    
+    /* Filtros (selectores) - FONDO OSCURO, TEXTO BLANCO */
+    div[data-baseweb="select"] > div {
+        background-color: #1e4a55 !important;
+        border-radius: 8px !important;
+        border: 1px solid #ffaa00 !important;
+    }
+    div[data-baseweb="select"] * {
+        color: #ffffff !important;
+    }
+    div[data-baseweb="select"] svg {
+        fill: #ffffff !important;
+    }
+    
+    /* Inputs de fecha - FONDO OSCURO, TEXTO BLANCO */
+    .stDateInput input {
+        background-color: #1e4a55 !important;
+        color: #ffffff !important;
+        border: 1px solid #ffaa00 !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Sidebar */
     [data-testid="stSidebar"] { background-color: #0a1f24 !important; }
     [data-testid="stSidebar"] * { color: #ffffff !important; }
-    [data-testid="stSidebar"] div[data-baseweb="select"] * { color: #1a1a1a !important; }
+    
+    /* Tarjetas de métricas */
     .metric-card {
         background-color: #1e4a55; padding: 20px; border-radius: 12px; text-align: center;
         border-bottom: 3px solid #ffaa00; margin: 10px 0;
     }
     .metric-value { font-size: 28px; font-weight: bold; color: #ffaa00; word-break: break-word; }
     .metric-label { font-size: 14px; color: #ffffff; }
+    
+    /* Tablas */
     .stDataFrame { background-color: #1e4a55 !important; border-radius: 10px; }
     .stDataFrame th { background-color: #0d2a30 !important; color: #ffaa00 !important; }
     .stDataFrame td { color: #ffffff !important; }
+    
+    /* Botón de descarga */
     .stDownloadButton button {
         background: linear-gradient(90deg, #ffaa00, #ffcc44) !important;
         color: #0d2a30 !important; font-weight: bold !important; font-size: 18px !important;
@@ -111,10 +138,8 @@ def procesar_datos(df):
 def mostrar_metricas(df):
     col1, col2, col3 = st.columns(3)
     
-    # SKU Únicos
     total_skus = df['Producto'].nunique() if 'Producto' in df.columns else 0
     
-    # Zona con más registros
     if 'Zona' in df.columns and not df.empty:
         zona_top = df['Zona'].value_counts().index[0]
         zona_count = df['Zona'].value_counts().iloc[0]
@@ -122,7 +147,6 @@ def mostrar_metricas(df):
     else:
         zona_text = "-"
     
-    # Auditor con más registros
     if 'Auditor' in df.columns and not df.empty:
         auditor_top = df['Auditor'].value_counts().index[0]
         auditor_count = df['Auditor'].value_counts().iloc[0]
@@ -198,20 +222,48 @@ def grafico_top_auditores(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def grafico_registros_por_zona(df):
+    """Gráfico de barras vertical - Registros por Zona"""
     if 'Zona' not in df.columns:
         return
     zona_counts = df.groupby('Zona').size().reset_index(name='Registros')
-    fig = px.pie(zona_counts, values='Registros', names='Zona',
-                 title='📍 Distribución de Registros por Zona',
-                 color_discrete_sequence=['#ffaa00', '#ffbb22', '#ffcc44', '#ffdd66', '#ffee88', '#ffffaa'])
-    fig.update_traces(textposition='inside', textinfo='percent+label', 
-                      textfont=dict(color='#0d2a30', size=12, weight='bold'))
+    zona_counts = zona_counts.sort_values('Registros', ascending=False)
+    fig = px.bar(zona_counts, x='Zona', y='Registros',
+                 title='📍 Registros por Zona',
+                 labels={'Zona': 'Zona', 'Registros': 'Cantidad de Registros'},
+                 color='Registros', color_continuous_scale='Oranges',
+                 text='Registros')
+    fig.update_traces(texttemplate='%{y}', textposition='outside', 
+                      textfont=dict(color='white', size=11, weight='bold'))
     fig.update_layout(paper_bgcolor='#0d2a30', plot_bgcolor='#0d2a30', 
-                      font=dict(color='white', size=12), title_font=dict(color='white', size=16))
+                      font=dict(color='white', size=12), title_font=dict(color='white', size=16),
+                      xaxis_tickangle=-45)
+    fig.update_xaxes(title_font_color='white', tickfont_color='white', gridcolor='#2a5a65')
+    fig.update_yaxes(title_font_color='white', tickfont_color='white', gridcolor='#2a5a65',
+                     tickformat='d', tick0=0, dtick=1)
+    st.plotly_chart(fig, use_container_width=True)
+
+def grafico_registros_por_competencia(df):
+    """Gráfico de barras vertical - Registros por Competencia (orden descendente)"""
+    if 'Competencia' not in df.columns:
+        return
+    comp_counts = df.groupby('Competencia').size().reset_index(name='Registros')
+    comp_counts = comp_counts.sort_values('Registros', ascending=False).head(15)
+    fig = px.bar(comp_counts, x='Competencia', y='Registros',
+                 title='🏪 Registros por Competencia',
+                 labels={'Competencia': 'Competencia', 'Registros': 'Cantidad de Registros'},
+                 color='Registros', color_continuous_scale='Oranges',
+                 text='Registros')
+    fig.update_traces(texttemplate='%{y}', textposition='outside', 
+                      textfont=dict(color='white', size=10, weight='bold'))
+    fig.update_layout(paper_bgcolor='#0d2a30', plot_bgcolor='#0d2a30', 
+                      font=dict(color='white', size=12), title_font=dict(color='white', size=16),
+                      height=500, xaxis_tickangle=-45)
+    fig.update_xaxes(title_font_color='white', tickfont_color='white', gridcolor='#2a5a65')
+    fig.update_yaxes(title_font_color='white', tickfont_color='white', gridcolor='#2a5a65',
+                     tickformat='d', tick0=0, dtick=1)
     st.plotly_chart(fig, use_container_width=True)
 
 def grafico_top_sku_precio(df):
-    """Top 10 SKU con mayor precio promedio"""
     if 'Producto' not in df.columns or 'Precio USD' not in df.columns:
         return
     top_precio = df.groupby('Producto')['Precio USD'].mean().sort_values(ascending=False).head(10).reset_index()
@@ -291,7 +343,6 @@ def tabla_detallada(df):
     if filtro_competencia != 'Todas':
         df_filtrado = df_filtrado[df_filtrado['Competencia'] == filtro_competencia]
     
-    # Agregar columna de Precio USD si existe
     columnas_mostrar = ['Fecha', 'Día Semana', 'Zona', 'Auditor', 'Competencia', 'Producto']
     if 'Precio USD' in df_filtrado.columns:
         columnas_mostrar.append('Precio USD')
@@ -357,9 +408,11 @@ def main():
     
     col5, col6 = st.columns(2)
     with col5:
-        grafico_registros_por_dia_semana(df_filtrado)
+        grafico_registros_por_competencia(df_filtrado)
     with col6:
-        grafico_evolucion_sku(df_filtrado)
+        grafico_registros_por_dia_semana(df_filtrado)
+    
+    grafico_evolucion_sku(df_filtrado)
     
     st.markdown("---")
     tabla_detallada(df_filtrado)
