@@ -101,16 +101,77 @@ def cargar_datos_supabase():
         return pd.DataFrame()
 
 def crear_competencia_detallada(row):
-    """Crea un nombre detallado para MI FARMA incluyendo el sector/zona"""
+    """Crea un nombre detallado para competencias que tienen múltiples sucursales"""
     competencia = row.get('competencia', '')
     zona = row.get('zona', '')
     
-    # Si es MI FARMA y la zona contiene "Punto Fijo - ", extraer el sector
+    # ===== MI FARMA en Punto Fijo =====
     if competencia == "MI FARMA" and "Punto Fijo - " in zona:
         sector = zona.replace("Punto Fijo - ", "")
         return f"MI FARMA ({sector})"
     
-    # Si hay otras competencias que quieras detallar, agregar aquí
+    # ===== FARMATODO (puede estar en varias zonas) =====
+    if competencia == "FARMATODO" and zona:
+        # Extraer zona principal (sin sector)
+        if " - " in zona:
+            zona_principal = zona.split(" - ")[0]
+        else:
+            zona_principal = zona
+        return f"FARMATODO ({zona_principal})"
+    
+    # ===== FARMACIA GUAMACHO (si hay varias) =====
+    if competencia == "FARMACIA GUAMACHO" and zona:
+        if " - " in zona:
+            zona_principal = zona.split(" - ")[0]
+        else:
+            zona_principal = zona
+        return f"FARMACIA GUAMACHO ({zona_principal})"
+    
+    # ===== MEGA OFERTAS (si hay varias) =====
+    if competencia == "MEGA OFERTAS" and zona:
+        if " - " in zona:
+            zona_principal = zona.split(" - ")[0]
+        else:
+            zona_principal = zona
+        return f"MEGA OFERTAS ({zona_principal})"
+    
+    # ===== FARMA OFERTAS (si hay varias) =====
+    if competencia == "FARMA OFERTAS" and zona:
+        if " - " in zona:
+            zona_principal = zona.split(" - ")[0]
+        else:
+            zona_principal = zona
+        return f"FARMA OFERTAS ({zona_principal})"
+    
+    # ===== SUPER 900 (si hay varias) =====
+    if competencia == "Super 900" and zona:
+        if " - " in zona:
+            zona_principal = zona.split(" - ")[0]
+        else:
+            zona_principal = zona
+        return f"Super 900 ({zona_principal})"
+    
+    # ===== FARMACIAS DIMAWORD (si hay varias) =====
+    if competencia == "Farmacias DIMAWORD" and zona:
+        if " - " in zona:
+            zona_principal = zona.split(" - ")[0]
+        else:
+            zona_principal = zona
+        return f"Farmacias DIMAWORD ({zona_principal})"
+    
+    # ===== LA ECONOMIA (puede estar en varias zonas) =====
+    if competencia == "La Economia" and zona:
+        return f"La Economia ({zona})"
+    
+    # ===== SAN IGNACIO (puede estar en varias zonas) =====
+    if competencia == "San Ignacio" and zona:
+        return f"San Ignacio ({zona})"
+    
+    # ===== FARMA CLINICA VERDE (puede estar en varias zonas) =====
+    if competencia == "Farma Clinica Verde" and zona:
+        return f"Farma Clinica Verde ({zona})"
+    
+    # Si no hay regla especial, devolver el nombre original
     return competencia
 
 def procesar_datos(df):
@@ -125,7 +186,7 @@ def procesar_datos(df):
                    'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'}
         df['dia_semana_es'] = df['dia_semana'].map(dias_es)
     
-    # Crear columna de Competencia Detallada (para distinguir MI FARMA por sucursal)
+    # Crear columna de Competencia Detallada
     df['Competencia Detallada'] = df.apply(crear_competencia_detallada, axis=1)
     
     renombrar = {
@@ -251,7 +312,7 @@ def grafico_registros_por_zona(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def grafico_registros_por_competencia(df):
-    """Gráfico de barras vertical - Usando Competencia Detallada para distinguir MI FARMA"""
+    """Gráfico de barras vertical - Usando Competencia Detallada"""
     if 'Competencia Detallada' not in df.columns:
         return
     comp_counts = df.groupby('Competencia Detallada').size().reset_index(name='Registros')
@@ -343,7 +404,7 @@ def tabla_detallada(df):
         competencias = ['Todas'] + sorted(df['Competencia Detallada'].unique().tolist()) if 'Competencia Detallada' in df.columns else ['Todas']
         filtro_competencia = st.selectbox("🏪 Filtrar por Competencia", competencias, key="filtro_competencia")
     with col4:
-        st.markdown("")  # Espacio para alinear
+        st.markdown("")
     
     df_filtrado = df.copy()
     if filtro_auditor != 'Todos':
