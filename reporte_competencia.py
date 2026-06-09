@@ -102,6 +102,8 @@ def cargar_datos_supabase():
 
 def obtener_zona_principal(zona):
     """Extrae la zona principal de un string de zona (ej: 'Punto Fijo - Caja de Agua' -> 'Punto Fijo')"""
+    if not zona or zona == "":
+        return "Sin zona"
     if " - " in zona:
         return zona.split(" - ")[0]
     return zona
@@ -110,48 +112,100 @@ def crear_competencia_detallada(row):
     """Crea un nombre detallado para competencias que tienen múltiples sucursales"""
     competencia = row.get('competencia', '')
     zona = row.get('zona', '')
-    zona_principal = obtener_zona_principal(zona) if zona else ""
+    zona_principal = obtener_zona_principal(zona) if zona else "Sin zona"
+    
+    # ===== FARMATODO (SIEMPRE mostrar la zona) =====
+    if competencia == "FARMATODO":
+        return f"FARMATODO ({zona_principal})"
     
     # ===== MI FARMA en Punto Fijo (distingue por sector) =====
     if competencia == "MI FARMA" and "Punto Fijo - " in zona:
         sector = zona.replace("Punto Fijo - ", "")
         return f"MI FARMA ({sector})"
     
-    # ===== FARMATODO (distingue por zona principal) =====
-    if competencia == "FARMATODO" and zona_principal:
-        return f"FARMATODO ({zona_principal})"
-    
-    # ===== FARMACIA GUAMACHO (distingue por zona principal) =====
-    if competencia == "FARMACIA GUAMACHO" and zona_principal:
+    # ===== FARMACIA GUAMACHO =====
+    if competencia == "FARMACIA GUAMACHO":
         return f"FARMACIA GUAMACHO ({zona_principal})"
     
-    # ===== MEGA OFERTAS (distingue por zona principal) =====
-    if competencia == "MEGA OFERTAS" and zona_principal:
+    # ===== MEGA OFERTAS =====
+    if competencia == "MEGA OFERTAS":
         return f"MEGA OFERTAS ({zona_principal})"
     
-    # ===== FARMA OFERTAS (distingue por zona principal) =====
-    if competencia == "FARMA OFERTAS" and zona_principal:
+    # ===== FARMA OFERTAS =====
+    if competencia == "FARMA OFERTAS":
         return f"FARMA OFERTAS ({zona_principal})"
     
-    # ===== SUPER 900 (distingue por zona principal) =====
-    if competencia == "Super 900" and zona_principal:
+    # ===== SUPER 900 =====
+    if competencia == "Super 900":
         return f"Super 900 ({zona_principal})"
     
-    # ===== FARMACIAS DIMAWORD (distingue por zona principal) =====
-    if competencia == "Farmacias DIMAWORD" and zona_principal:
+    # ===== FARMACIAS DIMAWORD =====
+    if competencia == "Farmacias DIMAWORD":
         return f"Farmacias DIMAWORD ({zona_principal})"
     
-    # ===== LA ECONOMIA (distingue por zona completa) =====
+    # ===== LA ECONOMIA =====
     if competencia == "La Economia" and zona:
         return f"La Economia ({zona})"
     
-    # ===== SAN IGNACIO (distingue por zona) =====
+    # ===== SAN IGNACIO =====
     if competencia == "San Ignacio" and zona:
         return f"San Ignacio ({zona})"
     
-    # ===== FARMA CLINICA VERDE (distingue por zona) =====
+    # ===== FARMA CLINICA VERDE =====
     if competencia == "Farma Clinica Verde" and zona:
         return f"Farma Clinica Verde ({zona})"
+    
+    # ===== NUEVO SIGLO =====
+    if competencia == "Nuevo Siglo" and zona:
+        return f"Nuevo Siglo ({zona})"
+    
+    # ===== FARMARTODO =====
+    if competencia == "Farmartodo" and zona:
+        return f"Farmartodo ({zona})"
+    
+    # ===== COSTA AZUL =====
+    if competencia == "Costa Azul" and zona:
+        return f"Costa Azul ({zona})"
+    
+    # ===== FARMA GANGA =====
+    if competencia == "Farma Ganga" and zona:
+        return f"Farma Ganga ({zona})"
+    
+    # ===== FARMA BIEN =====
+    if competencia == "Farma Bien" and zona:
+        return f"Farma Bien ({zona})"
+    
+    # ===== SATELNET =====
+    if competencia == "Satelnet" and zona:
+        return f"Satelnet ({zona})"
+    
+    # ===== BAIK =====
+    if competencia == "BAIK" and zona:
+        return f"BAIK ({zona})"
+    
+    # ===== CASA CHINA =====
+    if competencia == "CASA CHINA" and zona:
+        return f"CASA CHINA ({zona})"
+    
+    # ===== FARMACIAS SAAS =====
+    if competencia == "FARMACIAS SAAS" and zona:
+        return f"FARMACIAS SAAS ({zona})"
+    
+    # ===== TU CARNE =====
+    if competencia == "TU CARNE" and zona:
+        return f"TU CARNE ({zona})"
+    
+    # ===== BARATILLO =====
+    if competencia == "BARATILLO" and zona:
+        return f"BARATILLO ({zona})"
+    
+    # ===== RAMI CENTRO 2026 =====
+    if competencia == "Rami Centro 2026" and zona:
+        return f"Rami Centro 2026 ({zona})"
+    
+    # ===== YUSI 900 =====
+    if competencia == "YUSI 900" and zona:
+        return f"YUSI 900 ({zona})"
     
     # Si no hay regla especial, devolver el nombre original
     return competencia
