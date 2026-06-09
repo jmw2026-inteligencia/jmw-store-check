@@ -58,7 +58,7 @@ COMPETIDORES_POR_ZONA = {
     "San Felipe": ["Farma Ganga", "Farmatodo", "Farma Bien", "La Economia"],
     "Aroa": ["Satelnet"],
     "Cabudare": ["Farma Clinica Verde", "San Ignacio"],
-    "Chivacoa": ["La Economia"],
+    "Chivacoa": ["La Economia", "Xana"],  # <--- AGREGADO XANA
     # NUEVAS ZONAS
     "Punto Fijo - Caja de Agua": ["Super 900", "MI FARMA", "Farmacias DIMAWORD", "TU CARNE"],
     "Punto Fijo - La Puerta": ["Farmatodo", "MI FARMA", "Farmacias DIMAWORD", "Super 900"],
@@ -74,7 +74,7 @@ AUDITORES_POR_ZONA = {
     "Aroa": ["Miguel Moly", "Astrid Martinez"],
     "San Felipe": ["Jose Pinto", "Jorge Loyo"],
     "Tucacas": ["Genesis Quintero", "Katherine Rojas"],
-    "Chivacoa": ["Dayerlin Silvira", "Yonathan Mujica"],
+    "Chivacoa": ["Dayerlin Silvira", "Yonathan Mujica"],  # auditores de Chivacoa
     "Cabudare": ["Carmen Lobo"],
     # NUEVAS ZONAS - PUNTO FIJO
     "Punto Fijo - Caja de Agua": ["Jessica Yajure", "Orlando Goitia", "Jesus Garrido"],
