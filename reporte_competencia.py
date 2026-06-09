@@ -21,7 +21,7 @@ HEADERS = {
 }
 
 # ==========================================
-# 2. ESTILOS (con fondo oscuro para filtros)
+# 2. ESTILOS
 # ==========================================
 
 st.markdown("""
@@ -30,13 +30,11 @@ st.markdown("""
     h1, h2, h3, h4, h5, h6 { color: #ffffff !important; font-weight: bold !important; }
     .stMarkdown, p, span, div { color: #ffffff !important; }
     
-    /* Labels de filtros - BLANCOS */
     .stSelectbox label, .stDateInput label, .stMultiSelect label, .stCheckbox label {
         color: #ffffff !important;
         font-weight: bold !important;
     }
     
-    /* Filtros (selectores) - FONDO OSCURO, TEXTO BLANCO */
     div[data-baseweb="select"] > div {
         background-color: #1e4a55 !important;
         border-radius: 8px !important;
@@ -49,7 +47,6 @@ st.markdown("""
         fill: #ffffff !important;
     }
     
-    /* Inputs de fecha - FONDO OSCURO, TEXTO BLANCO */
     .stDateInput input {
         background-color: #1e4a55 !important;
         color: #ffffff !important;
@@ -57,11 +54,9 @@ st.markdown("""
         border-radius: 8px !important;
     }
     
-    /* Sidebar */
     [data-testid="stSidebar"] { background-color: #0a1f24 !important; }
     [data-testid="stSidebar"] * { color: #ffffff !important; }
     
-    /* Tarjetas de métricas */
     .metric-card {
         background-color: #1e4a55; padding: 20px; border-radius: 12px; text-align: center;
         border-bottom: 3px solid #ffaa00; margin: 10px 0;
@@ -69,12 +64,10 @@ st.markdown("""
     .metric-value { font-size: 28px; font-weight: bold; color: #ffaa00; word-break: break-word; }
     .metric-label { font-size: 14px; color: #ffffff; }
     
-    /* Tablas */
     .stDataFrame { background-color: #1e4a55 !important; border-radius: 10px; }
     .stDataFrame th { background-color: #0d2a30 !important; color: #ffaa00 !important; }
     .stDataFrame td { color: #ffffff !important; }
     
-    /* Botón de descarga */
     .stDownloadButton button {
         background: linear-gradient(90deg, #ffaa00, #ffcc44) !important;
         color: #0d2a30 !important; font-weight: bold !important; font-size: 18px !important;
@@ -107,6 +100,19 @@ def cargar_datos_supabase():
         st.error(f"Error de conexión: {e}")
         return pd.DataFrame()
 
+def crear_competencia_detallada(row):
+    """Crea un nombre detallado para MI FARMA incluyendo el sector/zona"""
+    competencia = row.get('competencia', '')
+    zona = row.get('zona', '')
+    
+    # Si es MI FARMA y la zona contiene "Punto Fijo - ", extraer el sector
+    if competencia == "MI FARMA" and "Punto Fijo - " in zona:
+        sector = zona.replace("Punto Fijo - ", "")
+        return f"MI FARMA ({sector})"
+    
+    # Si hay otras competencias que quieras detallar, agregar aquí
+    return competencia
+
 def procesar_datos(df):
     if df.empty:
         return df
@@ -118,6 +124,9 @@ def procesar_datos(df):
         dias_es = {'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles', 
                    'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'}
         df['dia_semana_es'] = df['dia_semana'].map(dias_es)
+    
+    # Crear columna de Competencia Detallada (para distinguir MI FARMA por sucursal)
+    df['Competencia Detallada'] = df.apply(crear_competencia_detallada, axis=1)
     
     renombrar = {
         'vendedor': 'Auditor',
@@ -132,7 +141,7 @@ def procesar_datos(df):
     return df
 
 # ==========================================
-# 4. MÉTRICAS (3 tarjetas)
+# 4. MÉTRICAS
 # ==========================================
 
 def mostrar_metricas(df):
@@ -222,7 +231,6 @@ def grafico_top_auditores(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def grafico_registros_por_zona(df):
-    """Gráfico de barras vertical - Registros por Zona"""
     if 'Zona' not in df.columns:
         return
     zona_counts = df.groupby('Zona').size().reset_index(name='Registros')
@@ -243,14 +251,14 @@ def grafico_registros_por_zona(df):
     st.plotly_chart(fig, use_container_width=True)
 
 def grafico_registros_por_competencia(df):
-    """Gráfico de barras vertical - Registros por Competencia (orden descendente)"""
-    if 'Competencia' not in df.columns:
+    """Gráfico de barras vertical - Usando Competencia Detallada para distinguir MI FARMA"""
+    if 'Competencia Detallada' not in df.columns:
         return
-    comp_counts = df.groupby('Competencia').size().reset_index(name='Registros')
+    comp_counts = df.groupby('Competencia Detallada').size().reset_index(name='Registros')
     comp_counts = comp_counts.sort_values('Registros', ascending=False).head(15)
-    fig = px.bar(comp_counts, x='Competencia', y='Registros',
-                 title='🏪 Registros por Competencia',
-                 labels={'Competencia': 'Competencia', 'Registros': 'Cantidad de Registros'},
+    fig = px.bar(comp_counts, x='Competencia Detallada', y='Registros',
+                 title='🏪 Registros por Competencia (Detallado)',
+                 labels={'Competencia Detallada': 'Competencia', 'Registros': 'Cantidad de Registros'},
                  color='Registros', color_continuous_scale='Oranges',
                  text='Registros')
     fig.update_traces(texttemplate='%{y}', textposition='outside', 
@@ -324,7 +332,7 @@ def grafico_evolucion_sku(df):
 def tabla_detallada(df):
     st.subheader("📋 Detalle de Registros")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         auditores = ['Todos'] + sorted(df['Auditor'].unique().tolist()) if 'Auditor' in df.columns else ['Todos']
         filtro_auditor = st.selectbox("👤 Filtrar por Auditor", auditores, key="filtro_auditor")
@@ -332,8 +340,10 @@ def tabla_detallada(df):
         zonas = ['Todas'] + sorted(df['Zona'].unique().tolist()) if 'Zona' in df.columns else ['Todas']
         filtro_zona = st.selectbox("📍 Filtrar por Zona", zonas, key="filtro_zona")
     with col3:
-        competencias = ['Todas'] + sorted(df['Competencia'].unique().tolist()) if 'Competencia' in df.columns else ['Todas']
+        competencias = ['Todas'] + sorted(df['Competencia Detallada'].unique().tolist()) if 'Competencia Detallada' in df.columns else ['Todas']
         filtro_competencia = st.selectbox("🏪 Filtrar por Competencia", competencias, key="filtro_competencia")
+    with col4:
+        st.markdown("")  # Espacio para alinear
     
     df_filtrado = df.copy()
     if filtro_auditor != 'Todos':
@@ -341,9 +351,9 @@ def tabla_detallada(df):
     if filtro_zona != 'Todas':
         df_filtrado = df_filtrado[df_filtrado['Zona'] == filtro_zona]
     if filtro_competencia != 'Todas':
-        df_filtrado = df_filtrado[df_filtrado['Competencia'] == filtro_competencia]
+        df_filtrado = df_filtrado[df_filtrado['Competencia Detallada'] == filtro_competencia]
     
-    columnas_mostrar = ['Fecha', 'Día Semana', 'Zona', 'Auditor', 'Competencia', 'Producto']
+    columnas_mostrar = ['Fecha', 'Día Semana', 'Zona', 'Auditor', 'Competencia Detallada', 'Producto']
     if 'Precio USD' in df_filtrado.columns:
         columnas_mostrar.append('Precio USD')
     
