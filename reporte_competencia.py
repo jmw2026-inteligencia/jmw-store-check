@@ -100,74 +100,56 @@ def cargar_datos_supabase():
         st.error(f"Error de conexión: {e}")
         return pd.DataFrame()
 
+def obtener_zona_principal(zona):
+    """Extrae la zona principal de un string de zona (ej: 'Punto Fijo - Caja de Agua' -> 'Punto Fijo')"""
+    if " - " in zona:
+        return zona.split(" - ")[0]
+    return zona
+
 def crear_competencia_detallada(row):
     """Crea un nombre detallado para competencias que tienen múltiples sucursales"""
     competencia = row.get('competencia', '')
     zona = row.get('zona', '')
+    zona_principal = obtener_zona_principal(zona) if zona else ""
     
-    # ===== MI FARMA en Punto Fijo =====
+    # ===== MI FARMA en Punto Fijo (distingue por sector) =====
     if competencia == "MI FARMA" and "Punto Fijo - " in zona:
         sector = zona.replace("Punto Fijo - ", "")
         return f"MI FARMA ({sector})"
     
-    # ===== FARMATODO (puede estar en varias zonas) =====
-    if competencia == "FARMATODO" and zona:
-        # Extraer zona principal (sin sector)
-        if " - " in zona:
-            zona_principal = zona.split(" - ")[0]
-        else:
-            zona_principal = zona
+    # ===== FARMATODO (distingue por zona principal) =====
+    if competencia == "FARMATODO" and zona_principal:
         return f"FARMATODO ({zona_principal})"
     
-    # ===== FARMACIA GUAMACHO (si hay varias) =====
-    if competencia == "FARMACIA GUAMACHO" and zona:
-        if " - " in zona:
-            zona_principal = zona.split(" - ")[0]
-        else:
-            zona_principal = zona
+    # ===== FARMACIA GUAMACHO (distingue por zona principal) =====
+    if competencia == "FARMACIA GUAMACHO" and zona_principal:
         return f"FARMACIA GUAMACHO ({zona_principal})"
     
-    # ===== MEGA OFERTAS (si hay varias) =====
-    if competencia == "MEGA OFERTAS" and zona:
-        if " - " in zona:
-            zona_principal = zona.split(" - ")[0]
-        else:
-            zona_principal = zona
+    # ===== MEGA OFERTAS (distingue por zona principal) =====
+    if competencia == "MEGA OFERTAS" and zona_principal:
         return f"MEGA OFERTAS ({zona_principal})"
     
-    # ===== FARMA OFERTAS (si hay varias) =====
-    if competencia == "FARMA OFERTAS" and zona:
-        if " - " in zona:
-            zona_principal = zona.split(" - ")[0]
-        else:
-            zona_principal = zona
+    # ===== FARMA OFERTAS (distingue por zona principal) =====
+    if competencia == "FARMA OFERTAS" and zona_principal:
         return f"FARMA OFERTAS ({zona_principal})"
     
-    # ===== SUPER 900 (si hay varias) =====
-    if competencia == "Super 900" and zona:
-        if " - " in zona:
-            zona_principal = zona.split(" - ")[0]
-        else:
-            zona_principal = zona
+    # ===== SUPER 900 (distingue por zona principal) =====
+    if competencia == "Super 900" and zona_principal:
         return f"Super 900 ({zona_principal})"
     
-    # ===== FARMACIAS DIMAWORD (si hay varias) =====
-    if competencia == "Farmacias DIMAWORD" and zona:
-        if " - " in zona:
-            zona_principal = zona.split(" - ")[0]
-        else:
-            zona_principal = zona
+    # ===== FARMACIAS DIMAWORD (distingue por zona principal) =====
+    if competencia == "Farmacias DIMAWORD" and zona_principal:
         return f"Farmacias DIMAWORD ({zona_principal})"
     
-    # ===== LA ECONOMIA (puede estar en varias zonas) =====
+    # ===== LA ECONOMIA (distingue por zona completa) =====
     if competencia == "La Economia" and zona:
         return f"La Economia ({zona})"
     
-    # ===== SAN IGNACIO (puede estar en varias zonas) =====
+    # ===== SAN IGNACIO (distingue por zona) =====
     if competencia == "San Ignacio" and zona:
         return f"San Ignacio ({zona})"
     
-    # ===== FARMA CLINICA VERDE (puede estar en varias zonas) =====
+    # ===== FARMA CLINICA VERDE (distingue por zona) =====
     if competencia == "Farma Clinica Verde" and zona:
         return f"Farma Clinica Verde ({zona})"
     
