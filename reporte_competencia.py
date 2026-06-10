@@ -114,9 +114,13 @@ def crear_competencia_detallada(row):
     zona = row.get('zona', '')
     zona_principal = obtener_zona_principal(zona) if zona else "Sin zona"
     
-    # ===== FARMATODO (SIEMPRE mostrar la zona) =====
+    # ===== FARMATODO (en mayúsculas) - Mostrar zona =====
     if competencia == "FARMATODO":
         return f"FARMATODO ({zona_principal})"
+    
+    # ===== FARMATODO (con F mayúscula) - Mostrar zona =====
+    if competencia == "Farmatodo":
+        return f"Farmatodo ({zona_principal})"
     
     # ===== MI FARMA en Punto Fijo (distingue por sector) =====
     if competencia == "MI FARMA" and "Punto Fijo - " in zona:
